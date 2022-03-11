@@ -1502,7 +1502,7 @@ static int wave5_vpu_open_enc(struct file *filp)
 	if (IS_ERR(inst->v4l2_fh.m2m_ctx))
 		return -ENODEV;
 
-	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 30);
+	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 50);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
 			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10, 0,
