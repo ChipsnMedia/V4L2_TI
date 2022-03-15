@@ -1706,7 +1706,7 @@ int wave5_vpu_dec_set_bitstream_flag(struct vpu_instance *vpu_inst, bool eos)
 	p_dec_info->stream_endflag = eos ? 1 : 0;
 
 	if (bs_mode == BS_MODE_INTERRUPT) {
-		vpu_write_reg(vpu_inst->dev, W5_BS_OPTION, (p_dec_info->stream_endflag << 1));
+		vpu_write_reg(vpu_inst->dev, W5_BS_OPTION, (p_dec_info->stream_endflag << 1) | (p_dec_info->stream_endflag << 0));
 		vpu_write_reg(vpu_inst->dev, W5_BS_WR_PTR, p_dec_info->stream_wr_ptr);
 
 		wave5_bit_issue_command(vpu_inst, W5_UPDATE_BS);
