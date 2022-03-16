@@ -182,22 +182,10 @@ static void wave5_handle_src_buffer(struct vpu_instance *inst)
 		struct vpu_buffer *vpu_buf = wave5_to_vpu_buf(src_buf);
 
 		if (vpu_buf->consumed) {
-			u32 remain_num = 0;
-
 			dev_dbg(inst->dev->dev, "already consumed buffer\n");
-			remain_num = v4l2_m2m_num_src_bufs_ready(inst->v4l2_fh.m2m_ctx);
-			dev_dbg(inst->dev->dev, "remain buffer : %d\n", remain_num);
-			if (remain_num > 1) {
-				src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
-				inst->timestamp = src_buf->vb2_buf.timestamp;
-				v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
-			} else {
-				if (inst->state == VPU_INST_STATE_STOP) {
-					src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
-					inst->timestamp = src_buf->vb2_buf.timestamp;
-					v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
-				}
-			}
+			src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
+			inst->timestamp = src_buf->vb2_buf.timestamp;
+			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 		}
 	}
 	spin_unlock_irqrestore(&inst->bitstream_lock, flags);
@@ -1115,11 +1103,28 @@ static void wave5_vpu_dec_stop_streaming(struct vb2_queue *q)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
 	struct vb2_v4l2_buffer *buf;
+	bool check_cmd = TRUE;
 
 	dev_dbg(inst->dev->dev, "type : %d\n", q->type);
 
 	if (wave5_vpu_both_queues_are_streaming(inst))
 		inst->state = VPU_INST_STATE_STOP;
+
+	while (check_cmd) {
+		struct queue_status_info q_status;
+		struct dec_output_info dec_output_info;
+		int ret;
+
+		wave5_vpu_dec_give_command(inst, DEC_GET_QUEUE_STATUS, &q_status);
+
+		if (q_status.instance_queue_count + q_status.report_queue_count == 0)
+			break;
+
+		if (wave5_vpu_wait_interrupt(inst, VPU_DEC_TIMEOUT) < 0)
+			break;
+
+		ret = wave5_vpu_dec_get_output_info(inst, &dec_output_info);
+	}
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		while ((buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx))) {
