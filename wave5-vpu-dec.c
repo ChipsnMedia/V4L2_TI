@@ -355,6 +355,9 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 			struct vb2_v4l2_buffer *dst_buf =
 				v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
 
+			if (dst_buf == NULL)
+				return;
+
 			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
 			vb2_set_plane_payload(&dst_buf->vb2_buf, 0, 0);
 
