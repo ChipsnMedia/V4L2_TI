@@ -399,6 +399,9 @@ struct dec_open_param {
 	int av1_format;
 	enum error_conceal_unit error_conceal_unit;
 	enum error_conceal_mode error_conceal_mode;
+	u32 pri_ext_addr;
+	u32 pri_axprot;
+	u32 pri_axcache;
 };
 
 struct dec_initial_info {
@@ -804,6 +807,9 @@ struct enc_open_param {
 	u32 encode_vui_rbsp;
 	u32 vui_rbsp_data_size; /* the bit size of the VUI rbsp data */
 	dma_addr_t vui_rbsp_data_addr; /* the address of the VUI rbsp data */
+	u32 pri_ext_addr;
+	u32 pri_axprot;
+	u32 pri_axcache;
 };
 
 struct enc_initial_info {

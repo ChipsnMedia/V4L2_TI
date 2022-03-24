@@ -1507,6 +1507,7 @@ static int wave5_vpu_open_enc(struct file *filp)
 	struct vpu_instance *inst = NULL;
 	struct v4l2_ctrl_handler *v4l2_ctrl_hdl;
 	struct v4l2_ctrl *ctrl;
+	int ret;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
@@ -1523,8 +1524,10 @@ static int wave5_vpu_open_enc(struct file *filp)
 
 	inst->v4l2_fh.m2m_ctx =
 		v4l2_m2m_ctx_init(dev->v4l2_m2m_dev, inst, wave5_vpu_enc_queue_init);
-	if (IS_ERR(inst->v4l2_fh.m2m_ctx))
-		return -ENODEV;
+	if (IS_ERR(inst->v4l2_fh.m2m_ctx)) {
+		ret = PTR_ERR(inst->v4l2_fh.m2m_ctx);
+		goto free_inst;
+	}
 
 	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 50);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
@@ -1613,8 +1616,10 @@ static int wave5_vpu_open_enc(struct file *filp)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 
-	if (inst->v4l2_ctrl_hdl.error)
-		return inst->v4l2_ctrl_hdl.error;
+	if (v4l2_ctrl_hdl->error) {
+		ret = -ENODEV;
+		goto free_inst;
+	}
 
 	inst->v4l2_fh.ctrl_handler = v4l2_ctrl_hdl;
 	v4l2_ctrl_handler_setup(v4l2_ctrl_hdl);
@@ -1628,6 +1633,10 @@ static int wave5_vpu_open_enc(struct file *filp)
 	inst->frame_rate = 30;
 
 	return 0;
+
+free_inst:
+	kfree(inst);
+	return ret;
 }
 
 static int wave5_vpu_enc_release(struct file *filp)

@@ -391,6 +391,16 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 
 	vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
 
+	reg_val = (WAVE5_PROC_AXI_EXT_ADDR&0xFFFF);
+	wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
+	reg_val = ((WAVE5_PROC_AXI_AXPROT&0x7)<<4) |
+		(WAVE5_PROC_AXI_AXCACHE&0xF);
+	wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, reg_val);
+	reg_val = ((WAVE5_SEC_AXI_AXPROT&0x7)<<20) |
+		((WAVE5_SEC_AXI_AXCACHE&0xF)<<16) |
+		(WAVE5_SEC_AXI_EXT_ADDR&0xFFFF);
+	vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, reg_val);
+
 	/* interrupt */
 	// encoder
 	reg_val = BIT(INT_WAVE5_ENC_SET_PARAM);
@@ -497,7 +507,8 @@ int wave5_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 	bs_endian = wave5_vdi_convert_endian(vpu_inst->dev, param->stream_endian);
 	bs_endian = (~bs_endian & VDI_128BIT_ENDIAN_MASK);
 	vpu_write_reg(vpu_inst->dev, W5_CMD_BS_PARAM, bs_endian);
-
+	vpu_write_reg(vpu_inst->dev, W5_CMD_EXT_ADDR, (param->pri_axprot<<20) |
+			(param->pri_axcache<<16) | (param->pri_ext_addr<<0));
 	vpu_write_reg(vpu_inst->dev, W5_CMD_NUM_CQ_DEPTH_M1, (COMMAND_QUEUE_DEPTH - 1));
 	vpu_write_reg(vpu_inst->dev, W5_CMD_ERR_CONCEAL, (param->error_conceal_unit << 2) |
 			(param->error_conceal_mode));
@@ -1380,6 +1391,16 @@ int wave5_vpu_re_init(struct device *dev, u8 *fw, uint32_t size)
 
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
 
+		reg_val = (WAVE5_PROC_AXI_EXT_ADDR&0xFFFF);
+		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
+		reg_val = ((WAVE5_PROC_AXI_AXPROT&0x7)<<4) |
+			(WAVE5_PROC_AXI_AXCACHE&0xF);
+		wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, reg_val);
+		reg_val = ((WAVE5_SEC_AXI_AXPROT&0x7)<<20) |
+			((WAVE5_SEC_AXI_AXCACHE&0xF)<<16) |
+			(WAVE5_SEC_AXI_EXT_ADDR&0xFFFF);
+		vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, reg_val);
+
 		/* interrupt */
 		// encoder
 		reg_val = BIT(INT_WAVE5_ENC_SET_PARAM);
@@ -1497,6 +1518,16 @@ static int wave5_vpu_sleep_wake(struct device *dev, int i_sleep_wake, const uint
 		vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE5_UPPER_PROC_AXI_ID << 4) | 0);
 
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
+
+		reg_val = (WAVE5_PROC_AXI_EXT_ADDR&0xFFFF);
+		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
+		reg_val = ((WAVE5_PROC_AXI_AXPROT&0x7)<<4) |
+			(WAVE5_PROC_AXI_AXCACHE&0xF);
+		wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, reg_val);
+		reg_val = ((WAVE5_SEC_AXI_AXPROT&0x7)<<20) |
+			((WAVE5_SEC_AXI_AXCACHE&0xF)<<16) |
+			(WAVE5_SEC_AXI_EXT_ADDR&0xFFFF);
+		vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, reg_val);
 
 		/* interrupt */
 		// encoder
@@ -1805,6 +1836,8 @@ int wave5_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *vpu_in
 
 	reg_val = (param->line_buf_int_en << 6) | bs_endian;
 	vpu_write_reg(vpu_inst->dev, W5_CMD_BS_PARAM, reg_val);
+	vpu_write_reg(vpu_inst->dev, W5_CMD_EXT_ADDR, (param->pri_axprot<<20) |
+			(param->pri_axcache<<16) | (param->pri_ext_addr<<0));
 	vpu_write_reg(vpu_inst->dev, W5_CMD_NUM_CQ_DEPTH_M1, (COMMAND_QUEUE_DEPTH - 1));
 
 	reg_val = 0;
@@ -1819,16 +1852,15 @@ int wave5_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *vpu_in
 	ret = wave5_wait_vpu_busy(vpu_inst->dev, W5_VPU_BUSY_STATUS);
 	if (ret) {
 		dev_warn(vpu_inst->dev->dev, "create instance timed out\n");
-		wave5_vdi_free_dma_memory(vpu_dev, &p_enc_info->vb_work);
-		return ret;
+		goto free_vb_work;
 	}
 
 	// FAILED for adding into VCPU QUEUE
 	if (!vpu_read_reg(vpu_inst->dev, W5_RET_SUCCESS)) {
-		wave5_vdi_free_dma_memory(vpu_dev, &p_enc_info->vb_work);
 		reg_val = vpu_read_reg(vpu_inst->dev, W5_RET_FAIL_REASON);
 		wave5_print_reg_err(vpu_inst->dev, reg_val);
-		return -EIO;
+		ret = -EIO;
+		goto free_vb_work;
 	}
 
 	p_enc_info->sub_frame_sync_config.sub_frame_sync_mode = param->sub_frame_sync_mode;
@@ -1844,6 +1876,9 @@ int wave5_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *vpu_in
 	p_enc_info->product_code = vpu_read_reg(vpu_inst->dev, W5_PRODUCT_NUMBER);
 
 	return 0;
+free_vb_work:
+	wave5_vdi_free_dma_memory(vpu_dev, &p_enc_info->vb_work);
+	return ret;
 }
 
 static int wave5_set_enc_crop_info(u32 codec, struct enc_wave_param *param, int rot_mode,

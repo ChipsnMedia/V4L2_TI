@@ -1267,7 +1267,7 @@ static int wave5_vpu_open_dec(struct file *filp)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 
 	if (inst->v4l2_ctrl_hdl.error) {
-		return -ENODEV;
+		ret = -ENODEV;
 		goto free_inst;
 	}
 
