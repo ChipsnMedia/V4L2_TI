@@ -479,6 +479,19 @@ static int wave5_vpu_dec_s_fmt_cap(struct file *file, void *fh, struct v4l2_form
 		inst->dst_fmt.plane_fmt[i].sizeimage = f->fmt.pix_mp.plane_fmt[i].sizeimage;
 	}
 
+	if (inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV12 ||
+	    inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV12M) {
+		inst->cbcr_interleave = true;
+		inst->nv21 = false;
+	} else if (inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV21 ||
+		   inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV21M) {
+		inst->cbcr_interleave = true;
+		inst->nv21 = true;
+	} else {
+		inst->cbcr_interleave = false;
+		inst->nv21 = false;
+	}
+
 	return 0;
 }
 
@@ -831,8 +844,6 @@ static void wave5_set_default_dec_openparam(struct dec_open_param *open_param)
 	open_param->bitstream_mode = BS_MODE_INTERRUPT;
 	open_param->stream_endian = VPU_STREAM_ENDIAN;
 	open_param->frame_endian = VPU_FRAME_ENDIAN;
-	open_param->cbcr_interleave = false;
-	open_param->nv21 = false;
 }
 
 static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buffers,

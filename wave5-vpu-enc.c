@@ -581,6 +581,19 @@ static int wave5_vpu_enc_s_fmt_out(struct file *file, void *fh, struct v4l2_form
 		inst->src_fmt.plane_fmt[i].sizeimage = f->fmt.pix_mp.plane_fmt[i].sizeimage;
 	}
 
+	if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV12 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV12M) {
+		inst->cbcr_interleave = true;
+		inst->nv21 = false;
+	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV21 ||
+		   inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV21M) {
+		inst->cbcr_interleave = true;
+		inst->nv21 = true;
+	} else {
+		inst->cbcr_interleave = false;
+		inst->nv21 = false;
+	}
+
 	inst->colorspace = f->fmt.pix_mp.colorspace;
 	inst->ycbcr_enc = f->fmt.pix_mp.ycbcr_enc;
 	inst->hsv_enc = f->fmt.pix_mp.hsv_enc;
