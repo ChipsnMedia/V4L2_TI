@@ -333,8 +333,10 @@ static void wave5_vpu_enc_finish_encode(struct vpu_instance *inst)
 				.type = V4L2_EVENT_EOS
 			};
 
-			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
 			vb2_set_plane_payload(&dst_buf->vb2_buf, 0, 0);
+			dst_buf->vb2_buf.timestamp = inst->timestamp;
+			dst_buf->field = V4L2_FIELD_NONE;
+			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
 			v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
 			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
@@ -1355,7 +1357,7 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		inst->state = VPU_INST_STATE_PIC_RUN;
 	}
 
-	if (inst->state != VPU_INST_STATE_NONE && inst->state != VPU_INST_STATE_OPEN &&
+	if (inst->state == VPU_INST_STATE_INIT_SEQ &&
 	    q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		*num_buffers = inst->min_src_frame_buf_count;
 		dev_dbg(inst->dev->dev, "source buffer num : %d", *num_buffers);

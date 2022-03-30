@@ -330,19 +330,19 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 			if (inst->dst_fmt.num_planes == 1) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride * height * 3 / 2));
+						      (stride*height*3/2));
 			} else if (inst->dst_fmt.num_planes == 2) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride * height));
+						      (stride*height));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-						      ((stride / 2) * height));
+						      ((stride/2)*height));
 			} else if (inst->dst_fmt.num_planes == 3) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride * height));
+						      (stride*height));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-						      ((stride / 2) * (height / 2)));
+						      ((stride/2)*(height/2)));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 2,
-						      ((stride / 2) * (height / 2)));
+						      ((stride/2)*(height/2)));
 			}
 
 			dst_buf->vb2_buf.timestamp = inst->timestamp;
@@ -358,9 +358,26 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 			if (dst_buf == NULL)
 				return;
 
-			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
-			vb2_set_plane_payload(&dst_buf->vb2_buf, 0, 0);
+			if (inst->dst_fmt.num_planes == 1) {
+				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
+					vb2_plane_size(&dst_buf->vb2_buf, 0));
+			} else if (inst->dst_fmt.num_planes == 2) {
+				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
+					vb2_plane_size(&dst_buf->vb2_buf, 0));
+				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
+					vb2_plane_size(&dst_buf->vb2_buf, 1));
+			} else if (inst->dst_fmt.num_planes == 3) {
+				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
+					vb2_plane_size(&dst_buf->vb2_buf, 0));
+				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
+					vb2_plane_size(&dst_buf->vb2_buf, 1));
+				vb2_set_plane_payload(&dst_buf->vb2_buf, 2,
+					vb2_plane_size(&dst_buf->vb2_buf, 2));
+			}
 
+			dst_buf->vb2_buf.timestamp = inst->timestamp;
+			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
+			dst_buf->field = V4L2_FIELD_NONE;
 			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
 			inst->state = VPU_INST_STATE_PIC_RUN;
@@ -926,18 +943,13 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 			wave5_vpu_dec_give_command(inst, ENABLE_DEC_THUMBNAIL_MODE, NULL);
 
 		inst->min_src_frame_buf_count = *num_buffers;
-
-	} else if (inst->state != VPU_INST_STATE_NONE &&
-	    inst->state != VPU_INST_STATE_OPEN &&
+	} else if (inst->state == VPU_INST_STATE_INIT_SEQ &&
 	    q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		u32 non_linear_num = inst->min_dst_frame_buf_count;
 		u32 fb_stride, fb_height;
 		u32 luma_size, chroma_size;
 
 		*num_buffers = inst->min_dst_frame_buf_count;
-
-		if (inst->state != VPU_INST_STATE_INIT_SEQ)
-			return 0;
 
 		for (i = 0; i < non_linear_num; i++) {
 			struct frame_buffer *frame = &inst->frame_buf[i];
