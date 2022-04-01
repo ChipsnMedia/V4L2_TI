@@ -110,55 +110,6 @@ bool wave5_vpu_is_init(struct vpu_device *vpu_dev)
 	return vpu_read_reg(vpu_dev, W5_VCPU_CUR_PC) != 0;
 }
 
-static struct dma_vpu_buf *get_sram_memory(struct vpu_device *vpu_dev)
-{
-	u32 sram_size = 0;
-	u32 val = vpu_read_reg(vpu_dev, W5_PRODUCT_NUMBER);
-
-	if (vpu_dev->sram_buf.size)
-		return &vpu_dev->sram_buf;
-
-	switch (val) {
-	case WAVE511_CODE:
-		/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
-		sram_size = 0x1F800;
-		break;
-	case WAVE517_CODE:
-		/* 10bit profile : 8_kx8_k -> 272384, 4_kx2_k -> 104448 */
-		sram_size = 0x42800;
-		break;
-	case WAVE537_CODE:
-		/* 10bit profile : 8_kx8_k -> 272384, 4_kx2_k -> 104448 */
-		sram_size = 0x42800;
-		break;
-	case WAVE521_CODE:
-		/* 10bit profile : 8_kx8_k -> 126976, 4_kx2_k -> 63488 */
-		sram_size = 0x1F000;
-		break;
-	case WAVE521E1_CODE:
-		/* 10bit profile : 8_kx8_k -> 126976, 4_kx2_k -> 63488 */
-		sram_size = 0x1F000;
-		break;
-	case WAVE521C_CODE:
-		/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
-		sram_size = 0x1F800;
-		break;
-	case WAVE521C_DUAL_CODE:
-		/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
-		sram_size = 0x1F800;
-		break;
-	default:
-		dev_err(vpu_dev->dev, "invalid check product_code(%x)\n", val);
-		break;
-	}
-
-	// if we can know the sram address directly in vdi layer, we use it first for sdram address
-	vpu_dev->sram_buf.daddr = 0;
-	vpu_dev->sram_buf.size = sram_size;
-
-	return &vpu_dev->sram_buf;
-}
-
 int32_t wave_vpu_get_product_id(struct vpu_device *vpu_dev)
 {
 	u32 product_id = PRODUCT_ID_NONE;
@@ -425,7 +376,7 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROG_AXI_ID, reg_val);
 	}
 
-	sram_vb = get_sram_memory(vpu_dev);
+	sram_vb = &vpu_dev->sram_buf;
 
 	vpu_write_reg(vpu_dev, W5_ADDR_SEC_AXI, sram_vb->daddr);
 	vpu_write_reg(vpu_dev, W5_SEC_AXI_SIZE, sram_vb->size);
@@ -491,7 +442,7 @@ int wave5_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 
 	vpu_write_reg(vpu_inst->dev, W5_CMD_DEC_VCORE_INFO, 1);
 
-	sram_vb = get_sram_memory(vpu_inst->dev);
+	sram_vb = &vpu_dev->sram_buf;
 	p_dec_info->sec_axi_info.buf_base = sram_vb->daddr;
 	p_dec_info->sec_axi_info.buf_size = sram_vb->size;
 
@@ -1425,7 +1376,7 @@ int wave5_vpu_re_init(struct device *dev, u8 *fw, uint32_t size)
 			wave5_fio_writel(vpu_dev, W5_BACKBONE_PROG_AXI_ID, reg_val);
 		}
 
-		sram_vb = get_sram_memory(vpu_dev);
+		sram_vb = &vpu_dev->sram_buf;
 
 		vpu_write_reg(vpu_dev, W5_ADDR_SEC_AXI, sram_vb->daddr);
 		vpu_write_reg(vpu_dev, W5_SEC_AXI_SIZE, sram_vb->size);
@@ -1813,7 +1764,7 @@ int wave5_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *vpu_in
 	u32 bs_endian;
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
 
-	sram_vb = get_sram_memory(vpu_dev);
+	sram_vb = &vpu_dev->sram_buf;
 	p_enc_info->sec_axi_info.buf_base = sram_vb->daddr;
 	p_enc_info->sec_axi_info.buf_size = sram_vb->size;
 

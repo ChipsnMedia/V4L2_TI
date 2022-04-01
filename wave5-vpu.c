@@ -25,6 +25,7 @@
 struct wave5_match_data {
 	int flags;
 	const char *fw_name;
+	size_t sram_size;
 };
 
 int wave5_vpu_wait_interrupt(struct vpu_instance *inst, unsigned int timeout)
@@ -216,6 +217,11 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 	}
 	dev->product = wave_vpu_get_product_id(dev);
 
+	dev->sram_buf.daddr = 0;
+	dev->sram_buf.size = match_data->sram_size;
+
+	dev_err(&pdev->dev, "sram size: 0x%lx\n", dev->sram_buf.size);
+
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "v4l2_device_register fail: %d\n", ret);
@@ -311,34 +317,71 @@ static int wave5_vpu_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct wave5_match_data wave511_data = {
+static const struct wave5_match_data w511_def_data = {
 	.flags = WAVE5_IS_DEC,
 	.fw_name = "wave511_dec_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
+	.sram_size = 0x1F800,
 };
 
-static const struct wave5_match_data wave521_data = {
+static const struct wave5_match_data w517_def_data = {
+	.flags = WAVE5_IS_DEC,
+	.fw_name = "wave517_dec_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 272384, 4_kx2_k -> 104448 */
+	.sram_size = 0x42800,
+};
+
+static const struct wave5_match_data w521_def_data = {
 	.flags = WAVE5_IS_ENC,
 	.fw_name = "wave521_enc_fw.bin",
+	 /* 10bit profile : 8_kx8_k -> 126976, 4_kx2_k -> 63488 */
+	.sram_size = 0x1F000,
 };
 
-static const struct wave5_match_data wave521c_data = {
+static const struct wave5_match_data w521c_def_data = {
 	.flags = WAVE5_IS_ENC | WAVE5_IS_DEC,
 	.fw_name = "wave521c_codec_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
+	.sram_size = 0x1F800,
 };
 
-static const struct wave5_match_data default_match_data = {
+static const struct wave5_match_data w521c_dual_def_data = {
 	.flags = WAVE5_IS_ENC | WAVE5_IS_DEC,
-	.fw_name = "chagall.bin",
+	.fw_name = "wave521c_dual_codec_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
+	.sram_size = 0x1F800,
+};
+
+static const struct wave5_match_data w521e1_def_data = {
+	.flags = WAVE5_IS_ENC,
+	.fw_name = "wave521e1_enc_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 126976, 4_kx2_k -> 63488 */
+	.sram_size = 0x1F000,
+};
+
+static const struct wave5_match_data w537_def_data = {
+	.flags = WAVE5_IS_DEC,
+	.fw_name = "wave537_dec_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 272384, 4_kx2_k -> 104448 */
+	.sram_size = 0x42800,
+};
+
+static const struct wave5_match_data w521c_j721s2_data = {
+	.flags = WAVE5_IS_ENC | WAVE5_IS_DEC,
+	.fw_name = "wave521c_codec_fw.bin",
+	/* 10bit profile : 8_kx8_k -> 129024, 4_kx2_k -> 64512 */
+	.sram_size = 0x10000,
 };
 
 static const struct of_device_id wave5_dt_ids[] = {
-	{ .compatible = "cnm,cm511-vpu", .data = &wave511_data },
-	{ .compatible = "cnm,cm517-vpu", .data = &default_match_data },
-	{ .compatible = "cnm,cm521-vpu", .data = &wave521_data },
-	{ .compatible = "cnm,cm521c-vpu", .data = &wave521c_data },
-	{ .compatible = "cnm,cm521c-dual-vpu", .data = &wave521c_data },
-	{ .compatible = "cnm,cm521e1-vpu", .data = &default_match_data },
-	{ .compatible = "cnm,cm537-vpu", .data = &default_match_data },
+	{ .compatible = "cnm,cm511-vpu", .data = &w511_def_data },
+	{ .compatible = "cnm,cm517-vpu", .data = &w517_def_data },
+	{ .compatible = "cnm,cm521-vpu", .data = &w521_def_data },
+	//{ .compatible = "cnm,cm521c-vpu", .data = &w521c_def_data },
+	{ .compatible = "cnm,cm521c-dual-vpu", .data = &w521c_dual_def_data },
+	{ .compatible = "cnm,cm521e1-vpu", .data = &w521e1_def_data },
+	{ .compatible = "cnm,cm537-vpu", .data = &w537_def_data },
+	{ .compatible = "cnm,cm521c-vpu", .data = &w521c_j721s2_data },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, wave5_dt_ids);
