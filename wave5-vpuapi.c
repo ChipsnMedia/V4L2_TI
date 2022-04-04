@@ -674,17 +674,29 @@ int wave5_vpu_dec_clr_disp_flag(struct vpu_instance *inst, int index)
 int wave5_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd, void *param)
 {
 	struct dec_info *p_dec_info = &inst->codec_info->dec_info;
-	struct queue_status_info *queue_info = param;
 
 	switch (cmd) {
-	case DEC_GET_QUEUE_STATUS:
+	case DEC_GET_QUEUE_STATUS: {
+		struct queue_status_info *queue_info = param;
+
 		queue_info->instance_queue_count = p_dec_info->instance_queue_count;
 		queue_info->report_queue_count = p_dec_info->report_queue_count;
 		break;
-
+	}
 	case ENABLE_DEC_THUMBNAIL_MODE:
 		p_dec_info->thumbnail_mode = 1;
 		break;
+	case DEC_SET_SEC_AXI: {
+		struct sec_axi_info sec_info = *(struct sec_axi_info *)param;
+
+		p_dec_info->sec_axi_info.wave.use_bit_enable
+					= sec_info.wave.use_bit_enable;
+		p_dec_info->sec_axi_info.wave.use_ip_enable
+					= sec_info.wave.use_ip_enable;
+		p_dec_info->sec_axi_info.wave.use_lf_row_enable
+					= sec_info.wave.use_lf_row_enable;
+		break;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -995,6 +1007,15 @@ int wave5_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd
 
 		queue_info->instance_queue_count = p_enc_info->instance_queue_count;
 		queue_info->report_queue_count = p_enc_info->report_queue_count;
+		break;
+	}
+	case ENC_SET_SEC_AXI: {
+		struct sec_axi_info sec_info = *(struct sec_axi_info *)param;
+
+		p_enc_info->sec_axi_info.wave.use_enc_rdo_enable
+					= sec_info.wave.use_enc_rdo_enable;
+		p_enc_info->sec_axi_info.wave.use_enc_lf_enable
+					= sec_info.wave.use_enc_lf_enable;
 		break;
 	}
 	default:

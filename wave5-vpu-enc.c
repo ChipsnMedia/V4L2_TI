@@ -196,6 +196,53 @@ static void wave5_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp, unsigned
 	}
 }
 
+static void wave5_set_sec_axi(struct vpu_instance *inst, unsigned int width)
+{
+	struct vpu_device *vpu_dev = inst->dev;
+	u32 avail_sram_size = vpu_dev->sram_buf.size;
+	struct sec_axi_info sec_axi_info;
+	u32 size;
+
+	memset(&sec_axi_info, 0, sizeof(struct sec_axi_info));
+
+	dev_err(vpu_dev->dev, "wave5_set_sec_axi(%d)\n", width);
+
+	if (inst->std == W_HEVC_ENC) {
+		size = ALIGN(width, 64)/64*18*16;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_enc_rdo_enable = TRUE;
+
+		avail_sram_size -= size;
+		size = ALIGN(width, 32)*5 + ALIGN(width, 32)*3;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_enc_lf_enable = TRUE;
+	} else {
+		size = ALIGN(width, 64)/64*24*16;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_enc_rdo_enable = TRUE;
+
+		avail_sram_size -= size;
+		size = ALIGN(width, 16)*4 + ALIGN(width, 16)*3;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_enc_lf_enable = TRUE;
+	}
+
+set_sec_axi:
+	wave5_vpu_enc_give_command(inst, ENC_SET_SEC_AXI, &sec_axi_info);
+}
+
 static void wave5_vpu_enc_start_encode(struct vpu_instance *inst)
 {
 	int ret;
@@ -1290,6 +1337,7 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 
 		inst->state = VPU_INST_STATE_OPEN;
 
+		wave5_set_sec_axi(inst, open_param.pic_width);
 		if (inst->mirror_direction) {
 			wave5_vpu_enc_give_command(inst, ENABLE_MIRRORING, NULL);
 			wave5_vpu_enc_give_command(inst, SET_MIRROR_DIRECTION,

@@ -238,6 +238,61 @@ static void wave5_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp, unsigned
 	}
 }
 
+static void wave5_set_sec_axi(struct vpu_instance *inst, unsigned int width)
+{
+	struct vpu_device *vpu_dev = inst->dev;
+	u32 avail_sram_size = vpu_dev->sram_buf.size;
+	struct sec_axi_info sec_axi_info;
+	u32 size;
+
+	memset(&sec_axi_info, 0, sizeof(struct sec_axi_info));
+
+	dev_err(vpu_dev->dev, "wave5_set_sec_axi(%d)\n", width);
+
+	if (inst->std == W_HEVC_DEC) {
+		size = ALIGN(ALIGN(width, 64)/32*72, 16);
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_bit_enable = TRUE;
+
+		avail_sram_size -= size;
+		size = ALIGN(width, 16)*2;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_ip_enable = TRUE;
+
+		avail_sram_size -= size;
+		size = ALIGN(width, 32)*5 + ALIGN(width, 32)*3;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_lf_row_enable = TRUE;
+	} else {
+		size = ALIGN(width, 16)*2;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_ip_enable = TRUE;
+
+		avail_sram_size -= size;
+		size = ALIGN(width, 32)*4 + ALIGN(width, 32)*2;
+		dev_err(vpu_dev->dev, "avail: 0x%x size: 0x%x\n", avail_sram_size, size);
+		if (avail_sram_size < size)
+			goto set_sec_axi;
+
+		sec_axi_info.wave.use_lf_row_enable = TRUE;
+	}
+
+set_sec_axi:
+	wave5_vpu_dec_give_command(inst, DEC_SET_SEC_AXI, &sec_axi_info);
+}
+
 static void wave5_vpu_dec_start_decode(struct vpu_instance *inst)
 {
 	struct dec_param pic_param;
@@ -1019,6 +1074,8 @@ static void wave5_vpu_dec_start_streaming_inst_open(struct vb2_queue *q, unsigne
 			wave5_update_pix_fmt(&inst->dst_fmt, initial_info.pic_width,
 					     initial_info.pic_height);
 		}
+
+		wave5_set_sec_axi(inst, initial_info.pic_width);
 		v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_src_ch);
 	}
 }
