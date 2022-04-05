@@ -875,6 +875,25 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
 		inst->bit_rate = ctrl->val;
 		break;
+	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
+		inst->enc_param.avc_idr_period = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
+		inst->enc_param.independ_slice_mode = ctrl->val;
+		inst->enc_param.avc_slice_mode = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+		inst->enc_param.independ_slice_mode_arg = ctrl->val;
+		inst->enc_param.avc_slice_arg = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD:
+		if (!ctrl->val) {
+			inst->enc_param.intra_mb_refresh_mode = 1;
+			inst->enc_param.intra_mb_refresh_arg = ctrl->val;
+			inst->enc_param.intra_refresh_mode = 1;
+			inst->enc_param.intra_refresh_arg = ctrl->val;
+		}
+		break;
 	case V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE:
 		inst->rc_enable = ctrl->val;
 		break;
@@ -1145,6 +1164,12 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		inst->enc_param.chroma_cb_qp_offset = ctrl->val;
 		inst->enc_param.chroma_cr_qp_offset = ctrl->val;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
+		inst->enc_param.intra_period = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		inst->enc_param.entropy_coding_mode = ctrl->val;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1162,6 +1187,8 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 {
 	unsigned int i;
 	struct enc_wave_param input = inst.enc_param;
+	u32 num_ctu_row = ALIGN(inst.dst_fmt.height, 64)/64;
+	u32 num_mb_row = ALIGN(inst.dst_fmt.height, 16)/16;
 
 	open_param->stream_endian = VPU_STREAM_ENDIAN;
 	open_param->source_endian = VPU_SOURCE_ENDIAN;
@@ -1184,7 +1211,6 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.hvs_qp_enable = 1;
 	open_param->wave_param.hvs_qp_scale = 2;
 	open_param->wave_param.hvs_max_delta_qp = 10;
-	open_param->wave_param.gop_param.custom_gop_size = 1;
 	open_param->wave_param.initial_rc_qp = -1;
 	open_param->wave_param.nr_intra_weight_y = 7;
 	open_param->wave_param.nr_intra_weight_cb = 7;
@@ -1197,8 +1223,6 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.bg_lambda_qp = 32;
 	open_param->wave_param.bg_delta_qp = 3;
 	open_param->wave_param.rdo_skip = 1;
-	open_param->wave_param.intra_mb_refresh_arg = 1;
-	open_param->wave_param.entropy_coding_mode = 1;
 	open_param->wave_param.rc_weight_param = 16;
 	open_param->wave_param.rc_weight_buf = 128;
 	open_param->wave_param.lambda_scaling_enable = 1;
@@ -1222,6 +1246,8 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.beta_offset_div2 = input.beta_offset_div2;
 	open_param->wave_param.decoding_refresh_type = input.decoding_refresh_type;
 	open_param->wave_param.intra_period = input.intra_period;
+	open_param->wave_param.avc_idr_period = input.avc_idr_period;
+	open_param->wave_param.entropy_coding_mode = input.entropy_coding_mode;
 	open_param->wave_param.lossless_enable = input.lossless_enable;
 	open_param->wave_param.const_intra_pred_flag = input.const_intra_pred_flag;
 	open_param->wave_param.wpp_enable = input.wpp_enable;
@@ -1232,6 +1258,25 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.const_intra_pred_flag = input.const_intra_pred_flag;
 	open_param->wave_param.chroma_cb_qp_offset = input.chroma_cb_qp_offset;
 	open_param->wave_param.chroma_cr_qp_offset = input.chroma_cr_qp_offset;
+	open_param->wave_param.independ_slice_mode = input.independ_slice_mode;
+	open_param->wave_param.independ_slice_mode_arg = input.independ_slice_mode_arg;
+	open_param->wave_param.avc_slice_mode = input.avc_slice_mode;
+	open_param->wave_param.avc_slice_arg = input.avc_slice_arg;
+
+	open_param->wave_param.intra_mb_refresh_mode = input.intra_mb_refresh_mode;
+	if (input.intra_mb_refresh_mode != 0) {
+		if (num_mb_row >= input.intra_mb_refresh_arg)
+			open_param->wave_param.intra_mb_refresh_arg = num_mb_row/input.intra_mb_refresh_arg;
+		else
+			open_param->wave_param.intra_mb_refresh_arg = num_mb_row;
+	}
+	open_param->wave_param.intra_refresh_mode = input.intra_refresh_mode;
+	if (input.intra_refresh_mode != 0) {
+		if (num_ctu_row >= input.intra_refresh_arg)
+			open_param->wave_param.intra_refresh_arg = num_ctu_row/input.intra_refresh_arg;
+		else
+			open_param->wave_param.intra_refresh_arg = num_ctu_row;
+	}
 }
 
 static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buffers,
@@ -1599,6 +1644,12 @@ static int wave5_vpu_open_enc(struct file *filp)
 			  0, 1, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
 			  -12, 12, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
+			  0, 2047, 1, 0);
+	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
+			       V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC, 0,
+			       V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC);
 
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
@@ -1610,6 +1661,13 @@ static int wave5_vpu_open_enc(struct file *filp)
 			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR, 0,
 			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_BITRATE, 0, 700000000, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_GOP_SIZE, 0, 2047, 1, 0);
+	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE,
+			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB, 0,
+			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB, 0, 0xFFFF, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD, 0, 256, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE, 0, 1, 1, 0);
 
