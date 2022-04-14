@@ -6,7 +6,7 @@
  */
 
 #include <linux/bug.h>
-#include "wave5-vpuapi.h"
+#include "wave5-vpuapi-hpi.h"
 #include "wave5-regdefine.h"
 #include "wave5.h"
 
@@ -27,17 +27,26 @@ static int wave5_initialize_vpu(struct device *dev, u8 *code, uint32_t size)
 	if (ret)
 		return ret;
 
+	dev_err(dev, "lock acquired\n");
+
 	if (wave5_vpu_is_init(vpu_dev)) {
 		wave5_vpu_re_init(dev, (void *)code, size);
 		ret = -EBUSY;
 		goto err_out;
 	}
 
-	ret = wave5_vpu_reset(dev, SW_RESET_ON_BOOT);
-	if (ret)
-		goto err_out;
+	dev_err(dev, "1\n");
+	// control reaches here
 
+	ret = wave5_vpu_reset(dev, SW_RESET_ON_BOOT);
+	if (ret) {
+		dev_err(dev, "failed to reset the vpu (%d)\n", ret);
+		goto err_out;
+	}
+
+	dev_err(dev, "2\n");
 	ret = wave5_vpu_init(dev, (void *)code, size);
+		
 
 err_out:
 	mutex_unlock(&vpu_dev->hw_lock);

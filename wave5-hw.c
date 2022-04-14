@@ -6,7 +6,7 @@
  */
 
 #include <linux/iopoll.h>
-#include "wave5-vpu.h"
+#include "wave5-vpu-hpi.h"
 #include "wave5.h"
 #include "wave5-regdefine.h"
 
@@ -153,7 +153,8 @@ static struct dma_vpu_buf *get_sram_memory(struct vpu_device *vpu_dev)
 	}
 
 	// if we can know the sram address directly in vdi layer, we use it first for sdram address
-	vpu_dev->sram_buf.daddr = 0;
+	//vpu_dev->sram_buf.daddr = 0;
+	vpu_dev->sram_buf.daddr = 0x80000000; // DRAM_PHYSICAL_BASE
 	vpu_dev->sram_buf.size = sram_size;
 
 	return &vpu_dev->sram_buf;
@@ -360,6 +361,24 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 
 	wave5_vdi_write_memory(vpu_dev, common_vb, 0, firmware, size, VDI_128BIT_LITTLE_ENDIAN);
 
+	{
+		u8 *buf = kmalloc(size, GFP_KERNEL);
+		if (!buf) {
+			dev_err(dev, "failed to malloc\n");
+			return -1;
+		}
+		wave5_vdi_read_memory(vpu_dev, common_vb, 0, buf, size, VDI_128BIT_LITTLE_ENDIAN);
+		/* for (i = 0; i < 100; i += 1) { */
+		/* 	dev_err(dev, "[0x%08x]: 0x%02x", i, buf[i]); */
+		/* } */
+		if (memcmp(firmware, buf, size)) {
+			dev_err(dev, "written firmware and read firmware mismatch\n");
+		} else {
+			dev_err(dev, "written firmware and read firmware matches\n");
+		}
+
+		kfree(buf);
+	}
 	vpu_write_reg(vpu_dev, W5_PO_CONF, 0);
 
 	/* clear registers */
@@ -368,24 +387,24 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 		vpu_write_reg(vpu_dev, i, 0x00);
 
 	/* remap page size 0*/
-	remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-	reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-		| (W5_REMAP_INDEX0 << 12) | BIT(11) | remap_size;
+	remap_size = (W_REMAP_MAX_SIZE >> 12) & 0x1ff;
+	reg_val = 0x80000000 | (WAVE_UPPER_PROC_AXI_ID << 20) | (0 << 16)
+		| (W_REMAP_INDEX0 << 12) | BIT(11) | remap_size;
 	vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
-	vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W5_REMAP_INDEX0 * W5_REMAP_MAX_SIZE);
-	vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR, code_base + W5_REMAP_INDEX0 * W5_REMAP_MAX_SIZE);
+	vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W_REMAP_INDEX0 * W_REMAP_MAX_SIZE);
+	vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR, code_base + W_REMAP_INDEX0 * W_REMAP_MAX_SIZE);
 
 	/* remap page size 1*/
-	remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-	reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-		| (W5_REMAP_INDEX1 << 12) | BIT(11) | remap_size;
+	remap_size = (W_REMAP_MAX_SIZE >> 12) & 0x1ff;
+	reg_val = 0x80000000 | (WAVE_UPPER_PROC_AXI_ID << 20) | (0 << 16)
+		| (W_REMAP_INDEX1 << 12) | BIT(11) | remap_size;
 	vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
-	vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE);
-	vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR, code_base + W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE);
+	vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W_REMAP_INDEX1 * W_REMAP_MAX_SIZE);
+	vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR, code_base + W_REMAP_INDEX1 * W_REMAP_MAX_SIZE);
 
 	vpu_write_reg(vpu_dev, W5_ADDR_CODE_BASE, code_base);
 	vpu_write_reg(vpu_dev, W5_CODE_SIZE, code_size);
-	vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE5_UPPER_PROC_AXI_ID << 4) | 0);
+	vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE_UPPER_PROC_AXI_ID << 4) | 0);
 	vpu_write_reg(vpu_dev, W5_ADDR_TEMP_BASE, temp_base);
 	vpu_write_reg(vpu_dev, W5_TEMP_SIZE, temp_size);
 
@@ -426,6 +445,7 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 	}
 
 	sram_vb = get_sram_memory(vpu_dev);
+	dev_err(vpu_dev->dev, "sram: %d, %d\n", sram_vb->size, sram_vb->daddr);
 
 	vpu_write_reg(vpu_dev, W5_ADDR_SEC_AXI, sram_vb->daddr);
 	vpu_write_reg(vpu_dev, W5_SEC_AXI_SIZE, sram_vb->size);
@@ -1358,7 +1378,7 @@ int wave5_vpu_re_init(struct device *dev, u8 *fw, uint32_t size)
 
 	old_code_base = vpu_read_reg(vpu_dev, W5_VPU_REMAP_PADDR);
 
-	if (old_code_base != code_base + W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE) {
+	if (old_code_base != code_base + W_REMAP_INDEX1 * W_REMAP_MAX_SIZE) {
 		wave5_vdi_write_memory(vpu_dev, common_vb, 0, fw, size, VDI_128BIT_LITTLE_ENDIAN);
 
 		vpu_write_reg(vpu_dev, W5_PO_CONF, 0);
@@ -1366,26 +1386,26 @@ int wave5_vpu_re_init(struct device *dev, u8 *fw, uint32_t size)
 		wave5_vpu_reset(dev, SW_RESET_ON_BOOT);
 
 		/* remap page size 0*/
-		remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-		reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-			| (W5_REMAP_INDEX0 << 12) | BIT(11) | remap_size;
+		remap_size = (W_REMAP_MAX_SIZE >> 12) & 0x1ff;
+		reg_val = 0x80000000 | (WAVE_UPPER_PROC_AXI_ID << 20) | (0 << 16)
+			| (W_REMAP_INDEX0 << 12) | BIT(11) | remap_size;
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
-		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W5_REMAP_INDEX0 * W5_REMAP_MAX_SIZE);
+		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W_REMAP_INDEX0 * W_REMAP_MAX_SIZE);
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR,
-			      code_base + W5_REMAP_INDEX0 * W5_REMAP_MAX_SIZE);
+			      code_base + W_REMAP_INDEX0 * W_REMAP_MAX_SIZE);
 
 		/* remap page size 1*/
-		remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-		reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-			| (W5_REMAP_INDEX1 << 12) | BIT(11) | remap_size;
+		remap_size = (W_REMAP_MAX_SIZE >> 12) & 0x1ff;
+		reg_val = 0x80000000 | (WAVE_UPPER_PROC_AXI_ID << 20) | (0 << 16)
+			| (W_REMAP_INDEX1 << 12) | BIT(11) | remap_size;
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
-		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE);
+		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W_REMAP_INDEX1 * W_REMAP_MAX_SIZE);
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR,
-			      code_base + W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE);
+			      code_base + W_REMAP_INDEX1 * W_REMAP_MAX_SIZE);
 
 		vpu_write_reg(vpu_dev, W5_ADDR_CODE_BASE, code_base);
 		vpu_write_reg(vpu_dev, W5_CODE_SIZE, code_size);
-		vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE5_UPPER_PROC_AXI_ID << 4) | 0);
+		vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE_UPPER_PROC_AXI_ID << 4) | 0);
 		vpu_write_reg(vpu_dev, W5_ADDR_TEMP_BASE, temp_base);
 		vpu_write_reg(vpu_dev, W5_TEMP_SIZE, temp_size);
 
@@ -1496,26 +1516,26 @@ static int wave5_vpu_sleep_wake(struct device *dev, int i_sleep_wake, const uint
 		vpu_write_reg(vpu_dev, W5_PO_CONF, 0);
 
 		/* remap page size 0*/
-		remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-		reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-			| (W5_REMAP_INDEX0 << 12) | BIT(11) | remap_size;
+		remap_size = (W_REMAP_MAX_SIZE >> 12) & 0x1ff;
+		reg_val = 0x80000000 | (WAVE_UPPER_PROC_AXI_ID << 20) | (0 << 16)
+			| (W_REMAP_INDEX0 << 12) | BIT(11) | remap_size;
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
-		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W5_REMAP_INDEX0 * W5_REMAP_MAX_SIZE);
+		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W_REMAP_INDEX0 * W_REMAP_MAX_SIZE);
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR,
-			      code_base + W5_REMAP_INDEX0 * W5_REMAP_MAX_SIZE);
+			      code_base + W_REMAP_INDEX0 * W_REMAP_MAX_SIZE);
 
 		/* remap page size 1*/
-		remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-		reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-			| (W5_REMAP_INDEX1 << 12) | BIT(11) | remap_size;
+		remap_size = (W_REMAP_MAX_SIZE >> 12) & 0x1ff;
+		reg_val = 0x80000000 | (WAVE_UPPER_PROC_AXI_ID << 20) | (0 << 16)
+			| (W_REMAP_INDEX1 << 12) | BIT(11) | remap_size;
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
-		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE);
+		vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, W_REMAP_INDEX1 * W_REMAP_MAX_SIZE);
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_PADDR,
-			      code_base + W5_REMAP_INDEX1 * W5_REMAP_MAX_SIZE);
+			      code_base + W_REMAP_INDEX1 * W_REMAP_MAX_SIZE);
 
 		vpu_write_reg(vpu_dev, W5_ADDR_CODE_BASE, code_base);
 		vpu_write_reg(vpu_dev, W5_CODE_SIZE, code_size);
-		vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE5_UPPER_PROC_AXI_ID << 4) | 0);
+		vpu_write_reg(vpu_dev, W5_CODE_PARAM, (WAVE_UPPER_PROC_AXI_ID << 4) | 0);
 
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
 
