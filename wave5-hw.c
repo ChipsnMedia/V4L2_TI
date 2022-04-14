@@ -3287,29 +3287,18 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *vpu_inst, struct enc_ope
 	if (pop->ring_buffer_enable) {
 		if (pop->bitstream_buffer % 8)
 			return -EINVAL;
-
-		if (product_id == PRODUCT_ID_521) {
-			if (pop->bitstream_buffer % 16)
-				return -EINVAL;
-			if (pop->bitstream_buffer_size < (1024 * 64))
-				return -EINVAL;
-		}
-
+		if (pop->bitstream_buffer % 16)
+			return -EINVAL;
+		if (pop->bitstream_buffer_size < (1024 * 64))
+			return -EINVAL;
 		if (pop->bitstream_buffer_size % 1024 || pop->bitstream_buffer_size < 1024)
 			return -EINVAL;
 	}
 
-	if (!pop->frame_rate_info) {
+	if (!pop->frame_rate_info)
 		return -EINVAL;
-	} else if (vpu_inst->std == W_HEVC_ENC) {
-		if (product_id == PRODUCT_ID_521) {
-			if (pop->bit_rate > 700000000 || pop->bit_rate < 0)
-				return -EINVAL;
-		}
-	} else {
-		if (pop->bit_rate > 32767 || pop->bit_rate < 0)
-			return -EINVAL;
-	}
+	if (pop->bit_rate > 700000000 || pop->bit_rate < 0)
+		return -EINVAL;
 
 	if (vpu_inst->std == W_HEVC_ENC ||
 	    (vpu_inst->std == W_AVC_ENC && product_id == PRODUCT_ID_521)) {

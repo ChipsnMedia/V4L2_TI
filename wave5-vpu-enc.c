@@ -972,14 +972,17 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDEO_HEVC_LOOP_FILTER_MODE_DISABLED:
 			inst->enc_param.disable_deblk = 1;
+			inst->enc_param.sao_enable = 0;
 			inst->enc_param.lf_cross_slice_boundary_enable = 0;
 			break;
 		case V4L2_MPEG_VIDEO_HEVC_LOOP_FILTER_MODE_ENABLED:
 			inst->enc_param.disable_deblk = 0;
+			inst->enc_param.sao_enable = 1;
 			inst->enc_param.lf_cross_slice_boundary_enable = 1;
 			break;
 		case V4L2_MPEG_VIDEO_HEVC_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY:
 			inst->enc_param.disable_deblk = 0;
+			inst->enc_param.sao_enable = 1;
 			inst->enc_param.lf_cross_slice_boundary_enable = 0;
 			break;
 		default:
@@ -1204,7 +1207,6 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 
 	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
 	open_param->wave_param.skip_intra_trans = 1;
-	open_param->wave_param.sao_enable = 1;
 	open_param->wave_param.intra_nx_n_enable = 1;
 	for (i = 0; i < MAX_GOP_NUM; i++)
 		open_param->wave_param.fixed_bit_ratio[i] = 1;
@@ -1246,7 +1248,14 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.beta_offset_div2 = input.beta_offset_div2;
 	open_param->wave_param.decoding_refresh_type = input.decoding_refresh_type;
 	open_param->wave_param.intra_period = input.intra_period;
-	open_param->wave_param.avc_idr_period = input.avc_idr_period;
+	if (inst.std == W_HEVC_ENC) {
+		if (input.intra_period == 0) {
+			open_param->wave_param.decoding_refresh_type = 2;
+			open_param->wave_param.intra_period = input.avc_idr_period;
+		}
+	} else {
+		open_param->wave_param.avc_idr_period = input.avc_idr_period;
+	}
 	open_param->wave_param.entropy_coding_mode = input.entropy_coding_mode;
 	open_param->wave_param.lossless_enable = input.lossless_enable;
 	open_param->wave_param.const_intra_pred_flag = input.const_intra_pred_flag;
@@ -1318,7 +1327,6 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		struct enc_initial_info initial_info;
 
 		memset(&open_param, 0, sizeof(struct enc_open_param));
-		wave5_set_enc_openparam(&open_param, *inst);
 
 		inst->std = wave5_to_vpu_wavestd(inst->dst_fmt.pixelformat);
 		if (inst->std == STD_UNKNOWN) {
@@ -1326,6 +1334,8 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 				 (char *)&inst->dst_fmt.pixelformat);
 			return -EINVAL;
 		}
+
+		wave5_set_enc_openparam(&open_param, *inst);
 
 		ret = wave5_vpu_enc_open(inst, &open_param);
 		if (ret) {
