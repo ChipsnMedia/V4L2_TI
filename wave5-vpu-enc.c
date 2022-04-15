@@ -1188,10 +1188,21 @@ static const struct v4l2_ctrl_ops wave5_vpu_enc_ctrl_ops = {
 static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 				    struct vpu_instance inst)
 {
-	unsigned int i;
 	struct enc_wave_param input = inst.enc_param;
 	u32 num_ctu_row = ALIGN(inst.dst_fmt.height, 64)/64;
 	u32 num_mb_row = ALIGN(inst.dst_fmt.height, 16)/16;
+
+	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
+	open_param->wave_param.skip_intra_trans = 1;
+	open_param->wave_param.intra_nx_n_enable = 1;
+	open_param->wave_param.nr_intra_weight_y = 7;
+	open_param->wave_param.nr_intra_weight_cb = 7;
+	open_param->wave_param.nr_intra_weight_cr = 7;
+	open_param->wave_param.nr_inter_weight_y = 4;
+	open_param->wave_param.nr_inter_weight_cb = 4;
+	open_param->wave_param.nr_inter_weight_cr = 4;
+	open_param->wave_param.rdo_skip = 1;
+	open_param->wave_param.lambda_scaling_enable = 1;
 
 	open_param->stream_endian = VPU_STREAM_ENDIAN;
 	open_param->source_endian = VPU_SOURCE_ENDIAN;
@@ -1200,39 +1211,25 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->pic_height = inst.dst_fmt.height;
 	open_param->frame_rate_info = inst.frame_rate;
 	open_param->rc_enable = inst.rc_enable;
+	if (inst.rc_enable) {
+		open_param->wave_param.initial_rc_qp = -1;
+		open_param->wave_param.rc_weight_param = 16;
+		open_param->wave_param.rc_weight_buf = 128;
+	}
+	open_param->wave_param.mb_level_rc_enable = input.mb_level_rc_enable;
+	open_param->wave_param.cu_level_rc_enable = input.cu_level_rc_enable;
+	if (input.mb_level_rc_enable || input.cu_level_rc_enable) {
+		open_param->wave_param.hvs_qp_enable = 1;
+		open_param->wave_param.hvs_qp_scale = 2;
+		open_param->wave_param.hvs_max_delta_qp = 10;
+	}
 	open_param->bit_rate = inst.bit_rate;
 	open_param->vbv_buffer_size = inst.vbv_buf_size;
 	if (inst.rc_mode == 0)
-		open_param->vbv_buffer_size = (inst.vbv_buf_size > 3000) ? inst.vbv_buf_size : 3000;
-
-	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
-	open_param->wave_param.skip_intra_trans = 1;
-	open_param->wave_param.intra_nx_n_enable = 1;
-	for (i = 0; i < MAX_GOP_NUM; i++)
-		open_param->wave_param.fixed_bit_ratio[i] = 1;
-	open_param->wave_param.hvs_qp_enable = 1;
-	open_param->wave_param.hvs_qp_scale = 2;
-	open_param->wave_param.hvs_max_delta_qp = 10;
-	open_param->wave_param.initial_rc_qp = -1;
-	open_param->wave_param.nr_intra_weight_y = 7;
-	open_param->wave_param.nr_intra_weight_cb = 7;
-	open_param->wave_param.nr_intra_weight_cr = 7;
-	open_param->wave_param.nr_inter_weight_y = 4;
-	open_param->wave_param.nr_inter_weight_cb = 4;
-	open_param->wave_param.nr_inter_weight_cr = 4;
-	open_param->wave_param.bg_thr_diff = 8;
-	open_param->wave_param.bg_thr_mean_diff = 1;
-	open_param->wave_param.bg_lambda_qp = 32;
-	open_param->wave_param.bg_delta_qp = 3;
-	open_param->wave_param.rdo_skip = 1;
-	open_param->wave_param.rc_weight_param = 16;
-	open_param->wave_param.rc_weight_buf = 128;
-	open_param->wave_param.lambda_scaling_enable = 1;
-
+		open_param->vbv_buffer_size = 3000;
 	open_param->wave_param.profile = inst.profile;
 	open_param->wave_param.level = inst.level;
 	open_param->wave_param.internal_bit_depth = inst.bit_depth;
-
 	open_param->wave_param.intra_qp = input.intra_qp;
 	open_param->wave_param.min_qp_i = input.min_qp_i;
 	open_param->wave_param.max_qp_i = input.max_qp_i;
@@ -1240,8 +1237,6 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.max_qp_p = input.max_qp_p;
 	open_param->wave_param.min_qp_b = input.min_qp_b;
 	open_param->wave_param.max_qp_b = input.max_qp_b;
-	open_param->wave_param.mb_level_rc_enable = input.mb_level_rc_enable;
-	open_param->wave_param.cu_level_rc_enable = input.cu_level_rc_enable;
 	open_param->wave_param.disable_deblk = input.disable_deblk;
 	open_param->wave_param.lf_cross_slice_boundary_enable = input.lf_cross_slice_boundary_enable;
 	open_param->wave_param.tc_offset_div2 = input.tc_offset_div2;
@@ -1271,7 +1266,6 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.independ_slice_mode_arg = input.independ_slice_mode_arg;
 	open_param->wave_param.avc_slice_mode = input.avc_slice_mode;
 	open_param->wave_param.avc_slice_arg = input.avc_slice_arg;
-
 	open_param->wave_param.intra_mb_refresh_mode = input.intra_mb_refresh_mode;
 	if (input.intra_mb_refresh_mode != 0) {
 		if (num_mb_row >= input.intra_mb_refresh_arg)
@@ -1321,7 +1315,7 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 
 	if (inst->state == VPU_INST_STATE_NONE && q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		u32 non_linear_num = 0;
-		unsigned int fb_stride = 0;
+		u32 fb_stride = 0;
 		u32 fb_height = 0;
 		struct enc_open_param open_param;
 		struct enc_initial_info initial_info;
@@ -1383,7 +1377,7 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		non_linear_num = inst->min_dst_frame_buf_count;
 
 		fb_stride = inst->dst_fmt.width;
-		fb_height = inst->dst_fmt.height;
+		fb_height = ALIGN(inst->dst_fmt.height, 32);
 
 		for (i = 0; i < non_linear_num; i++) {
 			u32 luma_size = fb_stride * fb_height;
@@ -1623,7 +1617,7 @@ static int wave5_vpu_open_enc(struct file *filp)
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_STRONG_SMOOTHING,
 			  0, 1, 1, 1);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_MAX_NUM_MERGE_MV_MINUS1,
-			  0, 2, 1, 2);
+			  1, 2, 1, 2);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_TMV_PREDICTION,
 			  0, 1, 1, 1);
 
