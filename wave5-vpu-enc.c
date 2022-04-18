@@ -900,6 +900,7 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE:
 		inst->enc_param.mb_level_rc_enable = ctrl->val;
 		inst->enc_param.cu_level_rc_enable = ctrl->val;
+		inst->enc_param.hvs_qp_enable = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		switch (ctrl->val) {
@@ -1137,7 +1138,7 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED:
 			inst->enc_param.disable_deblk = 1;
-			inst->enc_param.lf_cross_slice_boundary_enable = 0;
+			inst->enc_param.lf_cross_slice_boundary_enable = 1;
 			break;
 		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_ENABLED:
 			inst->enc_param.disable_deblk = 0;
@@ -1193,6 +1194,8 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	u32 num_mb_row = ALIGN(inst.dst_fmt.height, 16)/16;
 
 	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
+	open_param->wave_param.hvs_qp_scale = 2;
+	open_param->wave_param.hvs_max_delta_qp = 10;
 	open_param->wave_param.skip_intra_trans = 1;
 	open_param->wave_param.intra_nx_n_enable = 1;
 	open_param->wave_param.nr_intra_weight_y = 7;
@@ -1218,11 +1221,7 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	}
 	open_param->wave_param.mb_level_rc_enable = input.mb_level_rc_enable;
 	open_param->wave_param.cu_level_rc_enable = input.cu_level_rc_enable;
-	if (input.mb_level_rc_enable || input.cu_level_rc_enable) {
-		open_param->wave_param.hvs_qp_enable = 1;
-		open_param->wave_param.hvs_qp_scale = 2;
-		open_param->wave_param.hvs_max_delta_qp = 10;
-	}
+	open_param->wave_param.hvs_qp_enable = input.hvs_qp_enable;
 	open_param->bit_rate = inst.bit_rate;
 	open_param->vbv_buffer_size = inst.vbv_buf_size;
 	if (inst.rc_mode == 0)
