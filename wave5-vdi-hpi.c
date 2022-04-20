@@ -108,7 +108,7 @@ static int wave5_vdi_allocate_common_memory(struct device *dev)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
 
-	vpu_dev->common_mem.size = WAVE6_SIZE_COMMON;
+	vpu_dev->common_mem.size = WAVE5_SIZE_COMMON;
 	vpu_dev->common_mem.daddr = vpu_dev->fpga_memory.daddr;
 
 	return 0;
@@ -454,6 +454,8 @@ static int pci_read_memory(struct vpu_device *dev, unsigned int addr, unsigned c
 	int data = 0, cnt;
 	int ret;
 
+	dev_dbg(dev->dev, "%s(): reading from %lu\n", __func__, addr);
+
 	i = j = k = 0;
 	for (i = 0; i < size / HPI_MAX_PKSIZE; i++) {
 		ret = mutex_lock_interruptible(&dev->vdi_lock);
@@ -532,6 +534,8 @@ static int pci_write_memory(struct vpu_device *dev, unsigned int addr, unsigned 
 	int ret;
 
 	i = j = k = 0;
+
+	dev_dbg(dev->dev, "%s(): writing to %lu\n", __func__, addr);
 
 	for (i = 0; i < size/HPI_MAX_PKSIZE; i++)
 	{
@@ -958,6 +962,7 @@ void wave5_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb)
 		return;
 	}
 	
+	--vpu_dev->num_buffer;
 	memset(vb, 0, sizeof(*vb));
 }
 

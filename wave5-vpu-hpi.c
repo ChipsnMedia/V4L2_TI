@@ -65,23 +65,30 @@ static int interrupt_poller_func(void *arg)
 	while (true) {
 		if (kthread_should_stop())
 			break;
+		mutex_lock(&dev->hw_lock);
 		if (wave5_vdi_readl(dev, W5_VPU_VPU_INT_STS)) {
 			irq_status = wave5_vdi_readl(dev, W5_VPU_VINT_REASON);
 			wave5_vdi_write_register(dev, W5_VPU_VINT_REASON_CLR, irq_status);
 			wave5_vdi_write_register(dev, W5_VPU_VINT_CLEAR, 0x1);
 
-			inst = v4l2_m2m_get_curr_priv(dev->v4l2_m2m_dev);
-			if (inst) {
-				inst->ops->finish_process(inst);
-			} else {
+			kfifo_in(&dev->irq_status, &irq_status, sizeof(int));
+
+			if (irq_status) {
 				dev_info(dev->dev, "irq_status: 0x%x\n", irq_status);
-				val = wave5_vdi_readl(dev, W5_VPU_VINT_REASON_USR);
-				val &= ~irq_status;
-				wave5_vdi_write_register(dev, W5_VPU_VINT_REASON_USR, val);
-				complete(&dev->irq_done);
+				inst = v4l2_m2m_get_curr_priv(dev->v4l2_m2m_dev);
+				if (inst) {
+					dev_info(dev->dev, "inst not null\n");
+					inst->ops->finish_process(inst);
+				} else {
+					val = wave5_vdi_readl(dev, W5_VPU_VINT_REASON_USR);
+					val &= ~irq_status;
+					wave5_vdi_write_register(dev, W5_VPU_VINT_REASON_USR, val);
+					complete(&dev->irq_done);
 				
+				}
 			}
 		} 
+		mutex_unlock(&dev->hw_lock);
 		msleep_interruptible(10);
 	}
 
@@ -92,8 +99,10 @@ int wave5_vpu_wait_interrupt(struct vpu_instance *inst, unsigned int timeout)
 {
 	int ret;
 
+	dev_dbg(inst->dev->dev, "wait start\n");
 	ret = wait_for_completion_timeout(&inst->dev->irq_done,
 					  msecs_to_jiffies(timeout));
+	dev_dbg(inst->dev->dev, "wait end\n");
 	if (!ret)
 		return -ETIMEDOUT;
 
