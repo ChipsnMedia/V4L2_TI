@@ -1079,6 +1079,7 @@ struct vpu_device {
 	int bar;
 	struct vpu_clock clk;
 	struct task_struct *irq_poller_thread;
+	struct task_struct *softirq_thread;
 };
 
 struct vpu_instance;

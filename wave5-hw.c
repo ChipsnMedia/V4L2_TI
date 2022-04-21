@@ -361,16 +361,16 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 
 	wave5_vdi_write_memory(vpu_dev, common_vb, 0, firmware, size, VDI_128BIT_LITTLE_ENDIAN);
 
+#ifdef DEBUG
 	{
 		u8 *buf = kmalloc(size, GFP_KERNEL);
 		if (!buf) {
 			dev_err(dev, "failed to malloc\n");
 			return -1;
 		}
+
 		wave5_vdi_read_memory(vpu_dev, common_vb, 0, buf, size, VDI_128BIT_LITTLE_ENDIAN);
-		/* for (i = 0; i < 100; i += 1) { */
-		/* 	dev_err(dev, "[0x%08x]: 0x%02x", i, buf[i]); */
-		/* } */
+
 		if (memcmp(firmware, buf, size)) {
 			dev_err(dev, "written firmware and read firmware mismatch\n");
 		} else {
@@ -379,6 +379,7 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 
 		kfree(buf);
 	}
+#endif
 	vpu_write_reg(vpu_dev, W5_PO_CONF, 0);
 
 	/* clear registers */
@@ -445,7 +446,7 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 	}
 
 	sram_vb = get_sram_memory(vpu_dev);
-	dev_err(vpu_dev->dev, "sram: %lu, %llu\n", sram_vb->size, sram_vb->daddr);
+	dev_dbg(vpu_dev->dev, "sram: %lu, %llu\n", sram_vb->size, sram_vb->daddr);
 
 	vpu_write_reg(vpu_dev, W5_ADDR_SEC_AXI, sram_vb->daddr);
 	vpu_write_reg(vpu_dev, W5_SEC_AXI_SIZE, sram_vb->size);
@@ -1131,24 +1132,17 @@ int wave5_vpu_dec_get_result(struct vpu_instance *vpu_inst, struct dec_output_in
 	struct dec_info *p_dec_info = &vpu_inst->codec_info->dec_info;
 	struct vpu_device *vpu_dev = vpu_inst->dev;
 
-retry:
 	vpu_write_reg(vpu_inst->dev, W5_CMD_DEC_ADDR_REPORT_BASE, p_dec_info->user_data_buf_addr);
 	vpu_write_reg(vpu_inst->dev, W5_CMD_DEC_REPORT_SIZE, p_dec_info->user_data_buf_size);
 	vpu_write_reg(vpu_inst->dev, W5_CMD_DEC_REPORT_PARAM,
 		      VPU_USER_DATA_ENDIAN & VDI_128BIT_ENDIAN_MASK);
 
-	// send QUERY cmd
 	ret = wave5_send_query(vpu_inst, GET_RESULT);
 	if (ret) {
 		if (ret == -EIO) {
 			reg_val = vpu_read_reg(vpu_inst->dev, W5_RET_FAIL_REASON);
 			wave5_print_reg_err(vpu_inst->dev, reg_val);
 		}
-		/* if (reg_val == WAVE5_SYSERR_RESULT_NOT_READY) { */
-		/* 	dev_dbg(vpu_inst->dev->dev, "not ready, retrying\n"); */
-		/* 	goto retry; */
-		/* } */
-
 		return ret;
 	}
 

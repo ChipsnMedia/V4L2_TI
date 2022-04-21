@@ -454,7 +454,7 @@ static int pci_read_memory(struct vpu_device *dev, unsigned int addr, unsigned c
 	int data = 0, cnt;
 	int ret;
 
-	dev_dbg(dev->dev, "%s(): reading from %lu\n", __func__, addr);
+	dev_dbg(dev->dev, "%s(): reading from %u\n", __func__, addr);
 
 	i = j = k = 0;
 	for (i = 0; i < size / HPI_MAX_PKSIZE; i++) {
@@ -535,7 +535,7 @@ static int pci_write_memory(struct vpu_device *dev, unsigned int addr, unsigned 
 
 	i = j = k = 0;
 
-	dev_dbg(dev->dev, "%s(): writing to %lu\n", __func__, addr);
+	dev_dbg(dev->dev, "%s(): writing to %u\n", __func__, addr);
 
 	for (i = 0; i < size/HPI_MAX_PKSIZE; i++)
 	{
@@ -637,14 +637,13 @@ static int hpi_write_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned in
 		return 0;
 
 	addr = addr - vpu_dev->fpga_memory.daddr;
-//	s_hpi_base = base;
-	// ASSERT: base = vdb_register.virt_addr
 
 	aligned_addr = addr & ~align_mask;
 	offset = addr - aligned_addr;
 	pbuf = kmalloc((len + offset + align_mask) & ~align_mask, GFP_KERNEL);
-	if (pbuf) {
-		/* error */
+	if (!pbuf) {
+		dev_err(vpu_dev->dev, "error allocating temperary buffer\n");
+		return -ENOMEM;
 	}
 
 	if (offset) {
@@ -675,8 +674,6 @@ static int hpi_write_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned in
 
 	kfree(pbuf);
 
-	//io_unlock(core_idx);
-
 	return len;
 }
 
@@ -687,7 +684,6 @@ static int hpi_read_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned int
 	int size_to_read, remaining_size;
 	unsigned char *pbuf;
 	unsigned char *alloc_buf;
-	unsigned int align_size = bus_len;
 	unsigned int align_mask = bus_len - 1;
 	unsigned int aligned_addr;
 	unsigned int offset;
@@ -704,7 +700,7 @@ static int hpi_read_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned int
 	alloc_buf = kmalloc((len + offset + align_mask) & ~align_mask, GFP_KERNEL);
 	if (!alloc_buf) {
 		dev_err(vpu_dev->dev, "failed to allocate memory");
-		return 0;
+		return -ENOMEM;
 	}
 
 	pbuf = alloc_buf;
@@ -745,7 +741,6 @@ static int hpi_read_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned int
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, unsigned int addr, unsigned int data)
 {
 	int status;
-	int cnt = 0;
 	int ret;
 
 	ret = mutex_lock_interruptible(&vpu_dev->vdi_lock);
@@ -777,7 +772,6 @@ void wave5_vdi_write_register(struct vpu_device *vpu_dev, unsigned int addr, uns
 unsigned int wave5_vdi_readl(struct vpu_device *vpu_dev, u32 addr)
 {
 	int status;
-	int cnt = 0;
 	unsigned int data = 0;
 	int ret;
 

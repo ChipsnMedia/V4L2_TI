@@ -255,7 +255,6 @@ static void wave5_vpu_dec_start_decode(struct vpu_instance *inst)
 
 	while (max_cmd_q) {
 		u32 fail_res = 0;
-
 		ret = wave5_vpu_dec_start_one_frame(inst, &pic_param, &fail_res);
 		if (ret) {
 			if (fail_res == WAVE5_SYSERR_QUEUEING_FAIL) {
@@ -299,7 +298,6 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 	if (kfifo_out(&inst->dev->irq_status, &irq_status, sizeof(int)))
 		wave5_vpu_clear_interrupt_ex(inst, irq_status);
 
-		dev_dbg(inst->dev->dev, "irq_status: %d\n", irq_status);
 	if (irq_status & BIT(INT_WAVE5_BSBUF_EMPTY)) {
 		dev_dbg(inst->dev->dev, "bitstream EMPTY!!!!\n");
 		inst->state = VPU_INST_STATE_WAIT_BUF;
@@ -325,6 +323,7 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 		wave5_handle_src_buffer(inst);
 
 		dev_dbg(inst->dev->dev, "index_frame_display: %d\n",dec_output_info.index_frame_display); 
+		dev_dbg(inst->dev->dev, "index_frame_decoded: %d\n",dec_output_info.index_frame_decoded); 
 		if (dec_output_info.index_frame_display >= 0) {
 			struct vb2_v4l2_buffer *dst_buf =
 				v4l2_m2m_dst_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
@@ -1035,12 +1034,12 @@ static int wave5_vpu_dec_buf_init(struct vb2_buffer *vb)
 
 		ret = wave5_vdi_allocate_dma_memory(inst->dev, &vpu_buf->underlying);
 		if (ret) {
-			dev_err(inst->dev->dev, "failed to allocate linear buffer: %d\n",
+			dev_err(inst->dev->dev, "failed to allocate linear buffer: %ld\n",
 				vpu_buf->underlying.size);
 			return ret;
 		}
 
-		dev_dbg(inst->dev->dev, "physaddr=0x%x, virtaddr=0x%lx~0x%lx, size=%d\n",
+		dev_dbg(inst->dev->dev, "physaddr=0x%lx, virtaddr=0x%lx~0x%lx, size=%ld\n",
 			vpu_buf->underlying.daddr, vpu_buf->underlying.daddr,
 			vpu_buf->underlying.daddr + vpu_buf->underlying.size,
 			vpu_buf->underlying.size);
@@ -1080,32 +1079,12 @@ static void wave5_vpu_dec_buf_queue(struct vb2_buffer *vb)
 		u32 fb_stride = inst->dst_fmt.width;
 		u32 luma_size = fb_stride * inst->dst_fmt.height;
 		u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
-#if 1
+
 		buf_addr_y = vpu_buf->underlying.daddr;
 		buf_addr_cb = buf_addr_y + luma_size;
 		buf_addr_cr = buf_addr_cb + chroma_size;
 		buf_size = vpu_buf->underlying.size;
-#else
-		if (inst->dst_fmt.num_planes == 1) {
-			buf_size = vb2_plane_size(&vbuf->vb2_buf, 0);
-			buf_addr_y = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 0);
-			buf_addr_cb = buf_addr_y + luma_size;
-			buf_addr_cr = buf_addr_cb + chroma_size;
-		} else if (inst->dst_fmt.num_planes == 2) {
-			buf_size = vb2_plane_size(&vbuf->vb2_buf, 0) +
-				vb2_plane_size(&vbuf->vb2_buf, 1);
-			buf_addr_y = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 0);
-			buf_addr_cb = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 1);
-			buf_addr_cr = buf_addr_cb + chroma_size;
-		} else if (inst->dst_fmt.num_planes == 3) {
-			buf_size = vb2_plane_size(&vbuf->vb2_buf, 0) +
-				vb2_plane_size(&vbuf->vb2_buf, 1) +
-				vb2_plane_size(&vbuf->vb2_buf, 2);
-			buf_addr_y = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 0);
-			buf_addr_cb = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 1);
-			buf_addr_cr = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 2);
-		}
-#endif
+
 		inst->frame_buf[vb->index + non_linear_num].buf_y = buf_addr_y;
 		inst->frame_buf[vb->index + non_linear_num].buf_cb = buf_addr_cb;
 		inst->frame_buf[vb->index + non_linear_num].buf_cr = buf_addr_cr;
@@ -1138,23 +1117,22 @@ static void wave5_vpu_dec_buf_finish(struct vb2_buffer *vb)
 
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		struct vpu_buffer *vpu_buf = wave5_to_vpu_buf(vbuf);
-		fpga_addr_t buf_addr = vpu_buf->underlying.daddr;
+		fpga_addr_t offset = 0;
 		u8 *copy_src;
 		u32 plane = 0;
 		u32 copy_size = 0;
 
 		for (plane = 0; plane < inst->dst_fmt.num_planes; plane++) {
-			buf_addr += copy_size;
+			offset += copy_size;
 			copy_src = vb2_plane_vaddr(&vbuf->vb2_buf, plane);
 			copy_size = vb2_get_plane_payload(&vbuf->vb2_buf, plane);
 
 			if (copy_size > 0)
-				wave5_vdi_read_memory(inst->dev, &vpu_buf->underlying, 0, copy_src, copy_size, VDI_128BIT_LITTLE_ENDIAN);
+				wave5_vdi_read_memory(inst->dev, &vpu_buf->underlying, offset, copy_src, copy_size, VDI_128BIT_LITTLE_ENDIAN);
 			dev_dbg(inst->dev->dev, "copy_size[%d] %4d\n", plane, copy_size);
 		}
 	}
 }
-
 static void wave5_vpu_dec_buf_cleanup(struct vb2_buffer *vb)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
@@ -1286,7 +1264,6 @@ static int wave5_vpu_dec_queue_init(void *priv, struct vb2_queue *src_vq, struct
 
 	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	src_vq->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	//src_vq->mem_ops = &vb2_dma_contig_memops;
 	src_vq->mem_ops = &vb2_vmalloc_memops;
 	src_vq->ops = &wave5_vpu_dec_vb2_ops;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
@@ -1302,7 +1279,6 @@ static int wave5_vpu_dec_queue_init(void *priv, struct vb2_queue *src_vq, struct
 
 	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	dst_vq->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	//dst_vq->mem_ops = &vb2_dma_contig_memops;
 	dst_vq->mem_ops = &vb2_vmalloc_memops;
 	dst_vq->ops = &wave5_vpu_dec_vb2_ops;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;

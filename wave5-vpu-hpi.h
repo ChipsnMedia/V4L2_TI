@@ -21,18 +21,10 @@
 #define VPU_BUF_SYNC_TO_DEVICE 0
 #define VPU_BUF_SYNC_FROM_DEVICE 1
 
-/* struct underlying_buffer { */
-/* 	u32 size; */
-/* 	u32 daddr; */
-/* 	u32 base; */
-/* 	u32 vaddr; */
-/* }; */
-
 struct vpu_buffer {
 	struct v4l2_m2m_buffer v4l2_m2m_buf;
-	/* struct underlying_buffer underlying; */
 	struct vpu_buf underlying;
-	bool                   consumed;
+	bool consumed;
 };
 
 enum vpu_fmt_type {
