@@ -626,12 +626,12 @@ static int hpi_write_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned in
 	unsigned int next_4k_addr;
 	int size_to_write, remaining_size;
 	unsigned char *pbuf;
-	/* TODO: allocate on heap */
 	unsigned char ls_buf[HPI_MAX_BUS_LENGTH];
 	unsigned int align_size = bus_len;
 	unsigned int align_mask = bus_len-1;
 	unsigned int aligned_addr;
 	unsigned int offset;
+	unsigned int alloc_size;
 
 	if (addr < vpu_dev->fpga_memory.daddr)
 		return 0;
@@ -640,9 +640,10 @@ static int hpi_write_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned in
 
 	aligned_addr = addr & ~align_mask;
 	offset = addr - aligned_addr;
-	pbuf = kmalloc((len + offset + align_mask) & ~align_mask, GFP_KERNEL);
+        alloc_size = (len + offset + align_mask) & ~align_mask;
+	pbuf = vmalloc(alloc_size);
 	if (!pbuf) {
-		dev_err(vpu_dev->dev, "error allocating temperary buffer\n");
+		dev_err(vpu_dev->dev, "%s(): failed to allocate %u bytes of memory", __func__, alloc_size);
 		return -ENOMEM;
 	}
 
@@ -672,7 +673,7 @@ static int hpi_write_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned in
 	wave5_swap_endian(vpu_dev, pbuf, (size_to_write + align_mask) & ~align_mask, endian);
 	pci_write_memory(vpu_dev, addr, pbuf, (size_to_write + align_mask) & ~align_mask);
 
-	kfree(pbuf);
+	vfree(pbuf);
 
 	return len;
 }
@@ -683,10 +684,10 @@ static int hpi_read_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned int
 	unsigned int next_4k_addr;
 	int size_to_read, remaining_size;
 	unsigned char *pbuf;
-	unsigned char *alloc_buf;
 	unsigned int align_mask = bus_len - 1;
 	unsigned int aligned_addr;
 	unsigned int offset;
+        unsigned int alloc_size;
 
 	if (addr < vpu_dev->fpga_memory.daddr)
 		return 0;
@@ -697,13 +698,14 @@ static int hpi_read_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned int
 	
 	aligned_addr = addr & ~align_mask;
 	offset = addr - aligned_addr;
-	alloc_buf = kmalloc((len + offset + align_mask) & ~align_mask, GFP_KERNEL);
-	if (!alloc_buf) {
-		dev_err(vpu_dev->dev, "failed to allocate memory");
+
+        alloc_size = (len + offset + align_mask) & ~align_mask;
+
+	pbuf = vmalloc(alloc_size);
+	if (!pbuf) {
+		dev_err(vpu_dev->dev, "%s(): failed to allocate %u bytes of memory", __func__, alloc_size);
 		return -ENOMEM;
 	}
-
-	pbuf = alloc_buf;
 
 	addr = aligned_addr;
 	remaining_size = len + offset;
@@ -732,10 +734,9 @@ static int hpi_read_memory(struct vpu_device *vpu_dev, u32 bus_len, unsigned int
 		memcpy(data, pbuf + offset, remaining_size - offset);
 	}	
 
-	kfree(pbuf);
+	vfree(pbuf);
 
 	return len;
-
 }
 
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, unsigned int addr, unsigned int data)
