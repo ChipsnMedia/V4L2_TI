@@ -886,14 +886,6 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		inst->enc_param.independ_slice_mode_arg = ctrl->val;
 		inst->enc_param.avc_slice_arg = ctrl->val;
 		break;
-	case V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD:
-		if (!ctrl->val) {
-			inst->enc_param.intra_mb_refresh_mode = 1;
-			inst->enc_param.intra_mb_refresh_arg = ctrl->val;
-			inst->enc_param.intra_refresh_mode = 1;
-			inst->enc_param.intra_refresh_arg = ctrl->val;
-		}
-		break;
 	case V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE:
 		inst->rc_enable = ctrl->val;
 		break;
@@ -1670,7 +1662,6 @@ static int wave5_vpu_open_enc(struct file *filp)
 			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB, 0,
 			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB, 0, 0xFFFF, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD, 0, 256, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE, 0, 1, 1, 0);
 
