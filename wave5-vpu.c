@@ -226,7 +226,7 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 	dev->sram_buf.size = resource_size(&sram);
 
 	dev_err(&pdev->dev, "sram daddr: 0x%llx, size: 0x%lx\n",
-			dev->sram_buf.daddr, dev->sram_buf.size);
+		dev->sram_buf.daddr, dev->sram_buf.size);
 
 	dev->product_code = wave5_vdi_readl(dev, VPU_PRODUCT_CODE_REGISTER);
 	ret = wave5_vdi_init(&pdev->dev);

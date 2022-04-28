@@ -342,14 +342,14 @@ int wave5_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 
 	vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
 
-	reg_val = (WAVE5_PROC_AXI_EXT_ADDR&0xFFFF);
+	reg_val = (WAVE5_PROC_AXI_EXT_ADDR & 0xFFFF);
 	wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
-	reg_val = ((WAVE5_PROC_AXI_AXPROT&0x7)<<4) |
-		(WAVE5_PROC_AXI_AXCACHE&0xF);
+	reg_val = ((WAVE5_PROC_AXI_AXPROT & 0x7) << 4) |
+		(WAVE5_PROC_AXI_AXCACHE & 0xF);
 	wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, reg_val);
-	reg_val = ((WAVE5_SEC_AXI_AXPROT&0x7)<<20) |
-		((WAVE5_SEC_AXI_AXCACHE&0xF)<<16) |
-		(WAVE5_SEC_AXI_EXT_ADDR&0xFFFF);
+	reg_val = ((WAVE5_SEC_AXI_AXPROT & 0x7) << 20) |
+		((WAVE5_SEC_AXI_AXCACHE & 0xF) << 16) |
+		(WAVE5_SEC_AXI_EXT_ADDR & 0xFFFF);
 	vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, reg_val);
 
 	/* interrupt */
@@ -458,8 +458,8 @@ int wave5_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 	bs_endian = wave5_vdi_convert_endian(vpu_inst->dev, param->stream_endian);
 	bs_endian = (~bs_endian & VDI_128BIT_ENDIAN_MASK);
 	vpu_write_reg(vpu_inst->dev, W5_CMD_BS_PARAM, bs_endian);
-	vpu_write_reg(vpu_inst->dev, W5_CMD_EXT_ADDR, (param->pri_axprot<<20) |
-			(param->pri_axcache<<16) | (param->pri_ext_addr<<0));
+	vpu_write_reg(vpu_inst->dev, W5_CMD_EXT_ADDR, (param->pri_axprot << 20) |
+			(param->pri_axcache << 16) | (param->pri_ext_addr << 0));
 	vpu_write_reg(vpu_inst->dev, W5_CMD_NUM_CQ_DEPTH_M1, (COMMAND_QUEUE_DEPTH - 1));
 	vpu_write_reg(vpu_inst->dev, W5_CMD_ERR_CONCEAL, (param->error_conceal_unit << 2) |
 			(param->error_conceal_mode));
@@ -1342,14 +1342,14 @@ int wave5_vpu_re_init(struct device *dev, u8 *fw, uint32_t size)
 
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
 
-		reg_val = (WAVE5_PROC_AXI_EXT_ADDR&0xFFFF);
+		reg_val = (WAVE5_PROC_AXI_EXT_ADDR & 0xFFFF);
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
-		reg_val = ((WAVE5_PROC_AXI_AXPROT&0x7)<<4) |
-			(WAVE5_PROC_AXI_AXCACHE&0xF);
+		reg_val = ((WAVE5_PROC_AXI_AXPROT & 0x7) << 4) |
+			(WAVE5_PROC_AXI_AXCACHE & 0xF);
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, reg_val);
-		reg_val = ((WAVE5_SEC_AXI_AXPROT&0x7)<<20) |
-			((WAVE5_SEC_AXI_AXCACHE&0xF)<<16) |
-			(WAVE5_SEC_AXI_EXT_ADDR&0xFFFF);
+		reg_val = ((WAVE5_SEC_AXI_AXPROT & 0x7) << 20) |
+			((WAVE5_SEC_AXI_AXCACHE & 0xF) << 16) |
+			(WAVE5_SEC_AXI_EXT_ADDR & 0xFFFF);
 		vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, reg_val);
 
 		/* interrupt */
@@ -1470,14 +1470,14 @@ static int wave5_vpu_sleep_wake(struct device *dev, int i_sleep_wake, const uint
 
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
 
-		reg_val = (WAVE5_PROC_AXI_EXT_ADDR&0xFFFF);
+		reg_val = (WAVE5_PROC_AXI_EXT_ADDR & 0xFFFF);
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
-		reg_val = ((WAVE5_PROC_AXI_AXPROT&0x7)<<4) |
-			(WAVE5_PROC_AXI_AXCACHE&0xF);
+		reg_val = ((WAVE5_PROC_AXI_AXPROT & 0x7) << 4) |
+			(WAVE5_PROC_AXI_AXCACHE & 0xF);
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, reg_val);
-		reg_val = ((WAVE5_SEC_AXI_AXPROT&0x7)<<20) |
-			((WAVE5_SEC_AXI_AXCACHE&0xF)<<16) |
-			(WAVE5_SEC_AXI_EXT_ADDR&0xFFFF);
+		reg_val = ((WAVE5_SEC_AXI_AXPROT & 0x7) << 20) |
+			((WAVE5_SEC_AXI_AXCACHE & 0xF) << 16) |
+			(WAVE5_SEC_AXI_EXT_ADDR & 0xFFFF);
 		vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, reg_val);
 
 		/* interrupt */
@@ -1688,7 +1688,8 @@ int wave5_vpu_dec_set_bitstream_flag(struct vpu_instance *vpu_inst, bool eos)
 	p_dec_info->stream_endflag = eos ? 1 : 0;
 
 	if (bs_mode == BS_MODE_INTERRUPT) {
-		vpu_write_reg(vpu_inst->dev, W5_BS_OPTION, (p_dec_info->stream_endflag << 1) | (p_dec_info->stream_endflag << 0));
+		vpu_write_reg(vpu_inst->dev, W5_BS_OPTION, (p_dec_info->stream_endflag << 1) |
+			(p_dec_info->stream_endflag << 0));
 		vpu_write_reg(vpu_inst->dev, W5_BS_WR_PTR, p_dec_info->stream_wr_ptr);
 
 		wave5_bit_issue_command(vpu_inst, W5_UPDATE_BS);
@@ -1787,8 +1788,8 @@ int wave5_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *vpu_in
 
 	reg_val = (param->line_buf_int_en << 6) | bs_endian;
 	vpu_write_reg(vpu_inst->dev, W5_CMD_BS_PARAM, reg_val);
-	vpu_write_reg(vpu_inst->dev, W5_CMD_EXT_ADDR, (param->pri_axprot<<20) |
-			(param->pri_axcache<<16) | (param->pri_ext_addr<<0));
+	vpu_write_reg(vpu_inst->dev, W5_CMD_EXT_ADDR, (param->pri_axprot << 20) |
+			(param->pri_axcache << 16) | (param->pri_ext_addr << 0));
 	vpu_write_reg(vpu_inst->dev, W5_CMD_NUM_CQ_DEPTH_M1, (COMMAND_QUEUE_DEPTH - 1));
 
 	reg_val = 0;
@@ -3161,7 +3162,7 @@ static int wave5_vpu_enc_check_custom_gop(struct vpu_device *vpu_dev, struct enc
 
 			/* reference picture is not encoded yet */
 			if (enc_tid[ref_poc] < 0) {
-				dev_err(vpu_dev->dev, "1st ref pic cant be ref of pic (POC %d)\n",
+				dev_err(vpu_dev->dev, "1st ref pic can't be ref of pic (POC %d)\n",
 					cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
@@ -3181,9 +3182,9 @@ static int wave5_vpu_enc_check_custom_gop(struct vpu_device *vpu_dev, struct enc
 
 			/* reference picture is not encoded yet */
 			if (enc_tid[ref_poc] < 0) {
-				dev_err(vpu_dev->dev, "2nd ref pic cant be ref of pic (POC %d)\n"
+				dev_err(vpu_dev->dev, "2nd ref pic can't be ref of pic (POC %d)\n"
 						, cur_pic->poc_offset - gop_size);
-				dev_err(vpu_dev->dev,  "2nd ref pic cant be ref of pic (POC %d)\n"
+				dev_err(vpu_dev->dev,  "2nd ref pic can't be ref of pic (POC %d)\n"
 						, cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}

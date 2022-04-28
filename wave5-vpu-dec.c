@@ -258,16 +258,15 @@ static void wave5_vpu_dec_start_decode(struct vpu_instance *inst)
 
 		ret = wave5_vpu_dec_start_one_frame(inst, &pic_param, &fail_res);
 		if (ret) {
-			if (fail_res == WAVE5_SYSERR_QUEUEING_FAIL) {
-				break;
-			} else {
-				struct vb2_v4l2_buffer *src_buf =
-					v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
+			struct vb2_v4l2_buffer *src_buf;
 
-				inst->state = VPU_INST_STATE_STOP;
-				v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+			if (fail_res == WAVE5_SYSERR_QUEUEING_FAIL)
 				break;
-			}
+
+			src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
+			inst->state = VPU_INST_STATE_STOP;
+			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+			break;
 		}
 		max_cmd_q--;
 	}
@@ -314,7 +313,7 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 		return;
 	}
 	if (dec_output_info.index_frame_decoded == DECODED_IDX_FLAG_NO_FB &&
-		dec_output_info.index_frame_display == DISPLAY_IDX_FLAG_NO_FB) {
+	    dec_output_info.index_frame_display == DISPLAY_IDX_FLAG_NO_FB) {
 		dev_dbg(inst->dev->dev, "no more frame buffer\n");
 		if (inst->state != VPU_INST_STATE_STOP)
 			inst->state = VPU_INST_STATE_WAIT_BUF;
@@ -330,19 +329,19 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 			if (inst->dst_fmt.num_planes == 1) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride*height*3/2));
+						      (stride * height * 3 / 2));
 			} else if (inst->dst_fmt.num_planes == 2) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride*height));
+						      (stride * height));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-						      ((stride/2)*height));
+						      ((stride / 2) * height));
 			} else if (inst->dst_fmt.num_planes == 3) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride*height));
+						      (stride * height));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-						      ((stride/2)*(height/2)));
+						      ((stride / 2) * (height / 2)));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 2,
-						      ((stride/2)*(height/2)));
+						      ((stride / 2) * (height / 2)));
 			}
 
 			dst_buf->vb2_buf.timestamp = inst->timestamp;
@@ -355,24 +354,24 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 			struct vb2_v4l2_buffer *dst_buf =
 				v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
 
-			if (dst_buf == NULL)
+			if (!dst_buf)
 				return;
 
 			if (inst->dst_fmt.num_planes == 1) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-					vb2_plane_size(&dst_buf->vb2_buf, 0));
+						      vb2_plane_size(&dst_buf->vb2_buf, 0));
 			} else if (inst->dst_fmt.num_planes == 2) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-					vb2_plane_size(&dst_buf->vb2_buf, 0));
+						      vb2_plane_size(&dst_buf->vb2_buf, 0));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-					vb2_plane_size(&dst_buf->vb2_buf, 1));
+						      vb2_plane_size(&dst_buf->vb2_buf, 1));
 			} else if (inst->dst_fmt.num_planes == 3) {
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-					vb2_plane_size(&dst_buf->vb2_buf, 0));
+						      vb2_plane_size(&dst_buf->vb2_buf, 0));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-					vb2_plane_size(&dst_buf->vb2_buf, 1));
+						      vb2_plane_size(&dst_buf->vb2_buf, 1));
 				vb2_set_plane_payload(&dst_buf->vb2_buf, 2,
-					vb2_plane_size(&dst_buf->vb2_buf, 2));
+						      vb2_plane_size(&dst_buf->vb2_buf, 2));
 			}
 
 			dst_buf->vb2_buf.timestamp = inst->timestamp;
@@ -944,7 +943,7 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 
 		inst->min_src_frame_buf_count = *num_buffers;
 	} else if (inst->state == VPU_INST_STATE_INIT_SEQ &&
-	    q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		u32 non_linear_num = inst->min_dst_frame_buf_count;
 		u32 fb_stride, fb_height;
 		u32 luma_size, chroma_size;

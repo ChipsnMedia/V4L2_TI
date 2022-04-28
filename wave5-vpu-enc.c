@@ -204,9 +204,8 @@ static void wave5_vpu_enc_start_encode(struct vpu_instance *inst)
 	max_cmd_q = (inst->min_src_frame_buf_count < COMMAND_QUEUE_DEPTH) ?
 		inst->min_src_frame_buf_count : COMMAND_QUEUE_DEPTH;
 
-	if (inst->state == VPU_INST_STATE_STOP) {
+	if (inst->state == VPU_INST_STATE_STOP)
 		max_cmd_q = 1;
-	}
 
 	while (max_cmd_q) {
 		struct vb2_v4l2_buffer *src_buf;
@@ -228,13 +227,14 @@ static void wave5_vpu_enc_start_encode(struct vpu_instance *inst)
 		if (!dst_buf) {
 			dev_dbg(inst->dev->dev, "no valid dst buf\n");
 			break;
-		} else {
-			dst_vbuf = wave5_to_vpu_buf(dst_buf);
-			pic_param.pic_stream_buffer_addr
-				= vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
-			pic_param.pic_stream_buffer_size
-				= vb2_plane_size(&dst_buf->vb2_buf, 0);
 		}
+
+		dst_vbuf = wave5_to_vpu_buf(dst_buf);
+		pic_param.pic_stream_buffer_addr =
+			vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
+		pic_param.pic_stream_buffer_size =
+			vb2_plane_size(&dst_buf->vb2_buf, 0);
+
 		if (!src_buf) {
 			dev_dbg(inst->dev->dev, "no valid src buf\n");
 			if (inst->state == VPU_INST_STATE_STOP)
@@ -244,17 +244,23 @@ static void wave5_vpu_enc_start_encode(struct vpu_instance *inst)
 		} else {
 			src_vbuf = wave5_to_vpu_buf(src_buf);
 			if (inst->src_fmt.num_planes == 1) {
-				frame_buf.buf_y = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+				frame_buf.buf_y =
+					vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
 				frame_buf.buf_cb = frame_buf.buf_y + luma_size;
 				frame_buf.buf_cr = frame_buf.buf_cb + chroma_size;
 			} else if (inst->src_fmt.num_planes == 2) {
-				frame_buf.buf_y = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
-				frame_buf.buf_cb = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+				frame_buf.buf_y =
+					vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+				frame_buf.buf_cb =
+					vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
 				frame_buf.buf_cr = frame_buf.buf_cb + chroma_size;
 			} else if (inst->src_fmt.num_planes == 3) {
-				frame_buf.buf_y = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
-				frame_buf.buf_cb = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
-				frame_buf.buf_cr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 2);
+				frame_buf.buf_y =
+					vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+				frame_buf.buf_cb =
+					vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+				frame_buf.buf_cr =
+					vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 2);
 			}
 			frame_buf.stride = inst->dst_fmt.width;
 			pic_param.src_idx = src_buf->vb2_buf.index;
@@ -264,22 +270,21 @@ static void wave5_vpu_enc_start_encode(struct vpu_instance *inst)
 		pic_param.code_option.implicit_header_encode = 1;
 		ret = wave5_vpu_enc_start_one_frame(inst, &pic_param, &fail_res);
 		if (ret) {
-			if (fail_res == WAVE5_SYSERR_QUEUEING_FAIL) {
+			if (fail_res == WAVE5_SYSERR_QUEUEING_FAIL)
 				break;
-			} else {
-				dev_dbg(inst->dev->dev, "fail wave5_vpu_enc_start_one_frame() %d\n",
-					ret);
-				src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
-				dst_buf = v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
-				inst->state = VPU_INST_STATE_STOP;
-				v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
-				v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
-			}
+
+			dev_dbg(inst->dev->dev, "fail wave5_vpu_enc_start_one_frame() %d\n",
+				ret);
+			src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
+			dst_buf = v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
+			inst->state = VPU_INST_STATE_STOP;
+			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 		} else {
 			dev_dbg(inst->dev->dev, "success  wave5_vpu_enc_start_one_frame()\n");
-			if (src_buf != NULL)
+			if (src_buf)
 				src_vbuf->consumed = TRUE;
-			if (dst_buf != NULL)
+			if (dst_buf)
 				dst_vbuf->consumed = TRUE;
 		}
 
@@ -299,6 +304,8 @@ static void wave5_vpu_enc_finish_encode(struct vpu_instance *inst)
 	int ret;
 	struct enc_output_info enc_output_info;
 	int irq_status;
+	struct vb2_v4l2_buffer *dst_buf = NULL;
+	struct v4l2_m2m_buffer *v4l2_m2m_buf = NULL;
 
 	if (kfifo_out(&inst->dev->irq_status, &irq_status, sizeof(int)))
 		wave5_vpu_clear_interrupt_ex(inst, irq_status);
@@ -307,63 +314,60 @@ static void wave5_vpu_enc_finish_encode(struct vpu_instance *inst)
 	if (ret) {
 		dev_dbg(inst->dev->dev, "vpu_enc_get_output_info fail %d  reason: %d | info : %d\n",
 			ret, enc_output_info.error_reason, enc_output_info.warn_info);
+		return;
+	}
+
+	v4l2_m2m_for_each_dst_buf(inst->v4l2_fh.m2m_ctx, v4l2_m2m_buf) {
+		dst_buf = &v4l2_m2m_buf->vb;
+		if (enc_output_info.bitstream_buffer ==
+			vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0))
+			break;
+	}
+
+	if (enc_output_info.enc_src_idx >= 0) {
+		struct vb2_v4l2_buffer *src_buf =
+			v4l2_m2m_src_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
+						       enc_output_info.enc_src_idx);
+
+		inst->timestamp = src_buf->vb2_buf.timestamp;
+		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
+	}
+
+	if (enc_output_info.recon_frame_index == RECON_IDX_FLAG_ENC_END) {
+		static const struct v4l2_event vpu_event_eos = {
+			.type = V4L2_EVENT_EOS
+		};
+
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, 0);
+		dst_buf->vb2_buf.timestamp = inst->timestamp;
+		dst_buf->field = V4L2_FIELD_NONE;
+		dst_buf->flags |= V4L2_BUF_FLAG_LAST;
+		v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
+		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
+
+		inst->state = VPU_INST_STATE_PIC_RUN;
+		v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_eos);
+
+		v4l2_m2m_job_finish(inst->dev->v4l2_m2m_dev, inst->v4l2_fh.m2m_ctx);
 	} else {
-		struct vb2_v4l2_buffer *dst_buf = NULL;
-		struct v4l2_m2m_buffer *v4l2_m2m_buf = NULL;
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, enc_output_info.bitstream_size);
 
-		v4l2_m2m_buf = NULL;
-		v4l2_m2m_for_each_dst_buf(inst->v4l2_fh.m2m_ctx, v4l2_m2m_buf) {
-			dst_buf = &v4l2_m2m_buf->vb;
-			if (enc_output_info.bitstream_buffer ==
-					vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0))
-				break;
-		}
-
-		if (enc_output_info.enc_src_idx >= 0) {
-			struct vb2_v4l2_buffer *src_buf =
-				v4l2_m2m_src_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
-							       enc_output_info.enc_src_idx);
-
-			inst->timestamp = src_buf->vb2_buf.timestamp;
-			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
-		}
-
-		if (enc_output_info.recon_frame_index == RECON_IDX_FLAG_ENC_END) {
-			static const struct v4l2_event vpu_event_eos = {
-				.type = V4L2_EVENT_EOS
-			};
-
-			vb2_set_plane_payload(&dst_buf->vb2_buf, 0, 0);
-			dst_buf->vb2_buf.timestamp = inst->timestamp;
-			dst_buf->field = V4L2_FIELD_NONE;
-			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
-			v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
-			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
-
-			inst->state = VPU_INST_STATE_PIC_RUN;
-			v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_eos);
-
-			v4l2_m2m_job_finish(inst->dev->v4l2_m2m_dev, inst->v4l2_fh.m2m_ctx);
-		} else {
-			vb2_set_plane_payload(&dst_buf->vb2_buf, 0, enc_output_info.bitstream_size);
-
-			dst_buf->vb2_buf.timestamp = inst->timestamp;
-			dst_buf->field = V4L2_FIELD_NONE;
-			if (enc_output_info.pic_type == PIC_TYPE_I) {
-				if (enc_output_info.enc_vcl_nut == 19 ||
-				    enc_output_info.enc_vcl_nut == 20)
-					dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
-				else
-					dst_buf->flags |= V4L2_BUF_FLAG_PFRAME;
-			} else if (enc_output_info.pic_type == PIC_TYPE_P) {
+		dst_buf->vb2_buf.timestamp = inst->timestamp;
+		dst_buf->field = V4L2_FIELD_NONE;
+		if (enc_output_info.pic_type == PIC_TYPE_I) {
+			if (enc_output_info.enc_vcl_nut == 19 ||
+			    enc_output_info.enc_vcl_nut == 20)
+				dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
+			else
 				dst_buf->flags |= V4L2_BUF_FLAG_PFRAME;
-			} else if (enc_output_info.pic_type == PIC_TYPE_B) {
-				dst_buf->flags |= V4L2_BUF_FLAG_BFRAME;
-			}
-
-			v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
-			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
+		} else if (enc_output_info.pic_type == PIC_TYPE_P) {
+			dst_buf->flags |= V4L2_BUF_FLAG_PFRAME;
+		} else if (enc_output_info.pic_type == PIC_TYPE_B) {
+			dst_buf->flags |= V4L2_BUF_FLAG_BFRAME;
 		}
+
+		v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
+		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 	}
 }
 
@@ -1182,8 +1186,8 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 				    struct vpu_instance inst)
 {
 	struct enc_wave_param input = inst.enc_param;
-	u32 num_ctu_row = ALIGN(inst.dst_fmt.height, 64)/64;
-	u32 num_mb_row = ALIGN(inst.dst_fmt.height, 16)/16;
+	u32 num_ctu_row = ALIGN(inst.dst_fmt.height, 64) / 64;
+	u32 num_mb_row = ALIGN(inst.dst_fmt.height, 16) / 16;
 
 	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
 	open_param->wave_param.hvs_qp_scale = 2;
@@ -1229,7 +1233,8 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.min_qp_b = input.min_qp_b;
 	open_param->wave_param.max_qp_b = input.max_qp_b;
 	open_param->wave_param.disable_deblk = input.disable_deblk;
-	open_param->wave_param.lf_cross_slice_boundary_enable = input.lf_cross_slice_boundary_enable;
+	open_param->wave_param.lf_cross_slice_boundary_enable =
+		input.lf_cross_slice_boundary_enable;
 	open_param->wave_param.tc_offset_div2 = input.tc_offset_div2;
 	open_param->wave_param.beta_offset_div2 = input.beta_offset_div2;
 	open_param->wave_param.decoding_refresh_type = input.decoding_refresh_type;
@@ -1260,14 +1265,16 @@ static void wave5_set_enc_openparam(struct enc_open_param *open_param,
 	open_param->wave_param.intra_mb_refresh_mode = input.intra_mb_refresh_mode;
 	if (input.intra_mb_refresh_mode != 0) {
 		if (num_mb_row >= input.intra_mb_refresh_arg)
-			open_param->wave_param.intra_mb_refresh_arg = num_mb_row/input.intra_mb_refresh_arg;
+			open_param->wave_param.intra_mb_refresh_arg =
+				num_mb_row / input.intra_mb_refresh_arg;
 		else
 			open_param->wave_param.intra_mb_refresh_arg = num_mb_row;
 	}
 	open_param->wave_param.intra_refresh_mode = input.intra_refresh_mode;
 	if (input.intra_refresh_mode != 0) {
 		if (num_ctu_row >= input.intra_refresh_arg)
-			open_param->wave_param.intra_refresh_arg = num_ctu_row/input.intra_refresh_arg;
+			open_param->wave_param.intra_refresh_arg =
+				num_ctu_row / input.intra_refresh_arg;
 		else
 			open_param->wave_param.intra_refresh_arg = num_ctu_row;
 	}
@@ -1577,39 +1584,52 @@ static int wave5_vpu_open_enc(struct file *filp)
 			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10, 0,
 			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
-			       V4L2_CID_MPEG_VIDEO_HEVC_LEVEL, V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1, 0,
+			       V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
+			       V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1, 0,
 			       V4L2_MPEG_VIDEO_HEVC_LEVEL_1);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
 			  0, 63, 1, 8);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
 			  0, 63, 1, 51);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
 			  0, 63, 1, 30);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_HEVC_LOOP_FILTER_MODE,
 			       V4L2_MPEG_VIDEO_HEVC_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY, 0,
 			       V4L2_MPEG_VIDEO_HEVC_LOOP_FILTER_MODE_ENABLED);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_LF_BETA_OFFSET_DIV2,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_LF_BETA_OFFSET_DIV2,
 			  -6, 6, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_LF_TC_OFFSET_DIV2,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_LF_TC_OFFSET_DIV2,
 			  -6, 6, 1, 0);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_HEVC_REFRESH_TYPE,
 			       V4L2_MPEG_VIDEO_HEVC_REFRESH_IDR, 0,
 			       V4L2_MPEG_VIDEO_HEVC_REFRESH_CRA);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_REFRESH_PERIOD,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_REFRESH_PERIOD,
 			  0, 2047, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_LOSSLESS_CU,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_LOSSLESS_CU,
 			  0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_CONST_INTRA_PRED,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_CONST_INTRA_PRED,
 			  0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_WAVEFRONT,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_WAVEFRONT,
 			  0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_STRONG_SMOOTHING,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_STRONG_SMOOTHING,
 			  0, 1, 1, 1);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_MAX_NUM_MERGE_MV_MINUS1,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_MAX_NUM_MERGE_MV_MINUS1,
 			  1, 2, 1, 2);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_HEVC_TMV_PREDICTION,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_HEVC_TMV_PREDICTION,
 			  0, 1, 1, 1);
 
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
@@ -1617,56 +1637,84 @@ static int wave5_vpu_open_enc(struct file *filp)
 			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE, 0,
 			       V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
-			       V4L2_CID_MPEG_VIDEO_H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0,
+			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			       V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0,
 			       V4L2_MPEG_VIDEO_H264_LEVEL_1_0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_MIN_QP,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP,
 			  0, 63, 1, 8);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
 			  0, 63, 1, 51);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
 			  0, 63, 1, 30);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE,
 			       V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY, 0,
 			       V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_ENABLED);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA,
 			  -6, 6, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA,
 			  -6, 6, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM,
 			  0, 1, 1, 1);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_CONSTRAINED_INTRA_PREDICTION,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_CONSTRAINED_INTRA_PREDICTION,
 			  0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
 			  -12, 12, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
 			  0, 2047, 1, 0);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
 			       V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC, 0,
 			       V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC);
 
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_ROTATE, 0, 270, 90, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_VBV_SIZE, 10,
-			  3000, 1, 3000);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_HFLIP,
+			  0, 1, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_VFLIP,
+			  0, 1, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_ROTATE,
+			  0, 270, 90, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_VBV_SIZE,
+			  10, 3000, 1, 3000);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
 			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR, 0,
 			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_BITRATE, 0, 700000000, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_GOP_SIZE, 0, 2047, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_BITRATE,
+			  0, 700000000, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
+			  0, 2047, 1, 0);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE,
 			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB, 0,
 			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB, 0, 0xFFFF, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops, V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
+			  0, 0xFFFF, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
+			  0, 1, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE,
+			  0, 1, 1, 0);
 
 	ctrl = v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
-				 V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 1);
+				 V4L2_CID_MIN_BUFFERS_FOR_OUTPUT,
+				 1, 32, 1, 1);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 
