@@ -36,8 +36,7 @@ enum vpu_instance_state {
 	VPU_INST_STATE_OPEN = 1,
 	VPU_INST_STATE_INIT_SEQ = 2,
 	VPU_INST_STATE_PIC_RUN = 3,
-	VPU_INST_STATE_STOP = 4,
-	VPU_INST_STATE_WAIT_BUF = 5
+	VPU_INST_STATE_STOP = 4
 };
 
 #define WAVE5_MAX_FBS 32
@@ -195,6 +194,8 @@ enum codec_command {
 	ENABLE_DEC_THUMBNAIL_MODE,
 	DEC_GET_QUEUE_STATUS,
 	ENC_GET_QUEUE_STATUS,
+	DEC_RESET_FRAMEBUF_INFO,
+	DEC_GET_SEQ_INFO,
 };
 
 enum error_conceal_mode {
@@ -1020,14 +1021,12 @@ struct enc_info {
 struct vpu_device {
 	struct device *dev;
 	struct v4l2_device v4l2_dev;
-	struct v4l2_m2m_dev *v4l2_m2m_dev;
+	struct list_head instances;
 	struct video_device *video_dev_dec;
 	struct video_device *video_dev_enc;
 	struct mutex dev_lock; /* the lock for the src,dst v4l2 queues */
-	struct mutex	 hw_lock; /* lock hw configurations */
-	struct kfifo irq_status;
+	struct mutex hw_lock; /* lock hw configurations */
 	int irq;
-	struct completion irq_done;
 	enum product_id	 product;
 	struct vpu_attr	 attr;
 	struct vpu_buf common_mem;
@@ -1049,9 +1048,13 @@ struct vpu_instance_ops {
 };
 
 struct vpu_instance {
+	struct list_head list;
 	struct v4l2_fh v4l2_fh;
 	struct v4l2_ctrl_handler v4l2_ctrl_hdl;
 	struct vpu_device *dev;
+	struct v4l2_m2m_dev *v4l2_m2m_dev;
+	struct kfifo irq_status;
+	struct completion irq_done;
 
 	struct v4l2_pix_format_mplane src_fmt;
 	struct v4l2_pix_format_mplane dst_fmt;
@@ -1073,18 +1076,20 @@ struct vpu_instance {
 	} *codec_info;
 	struct frame_buffer frame_buf[MAX_REG_FRAME];
 	struct vpu_buf frame_vbuf[MAX_REG_FRAME];
-	u32 min_dst_frame_buf_count;
+	u32 min_dst_buf_count;
+	u32 dst_buf_count;
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;
 	u64 timestamp;
 	bool cbcr_interleave;
 	bool nv21;
+	bool eos;
 
-	spinlock_t bitstream_lock; /* lock the src buf queue of the m2m ctx */
 	struct vpu_buf bitstream_vbuf;
 	bool thumbnail_mode;
 
-	unsigned int min_src_frame_buf_count;
+	unsigned int min_src_buf_count;
+	unsigned int src_buf_count;
 	unsigned int rot_angle;
 	unsigned int mirror_direction;
 	unsigned int profile;
@@ -1123,11 +1128,13 @@ int wave5_vpu_dec_register_frame_buffer_ex(struct vpu_instance *inst, int num_of
 int wave5_vpu_dec_start_one_frame(struct vpu_instance *inst, struct dec_param *param,
 				  u32 *res_fail);
 int wave5_vpu_dec_get_output_info(struct vpu_instance *inst, struct dec_output_info *info);
+int wave5_vpu_dec_set_rd_ptr(struct vpu_instance *inst, dma_addr_t addr, int update_wr_ptr);
 int wave5_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd, void *parameter);
 int wave5_vpu_dec_get_bitstream_buffer(struct vpu_instance *inst, dma_addr_t *prd_prt,
 				       dma_addr_t *pwr_ptr, uint32_t *size);
 int wave5_vpu_dec_update_bitstream_buffer(struct vpu_instance *inst, int size);
 int wave5_vpu_dec_clr_disp_flag(struct vpu_instance *inst, int index);
+int wave5_vpu_dec_set_disp_flag(struct vpu_instance *inst, int index);
 
 int wave5_vpu_enc_open(struct vpu_instance *vpu_inst, struct enc_open_param *enc_op_param);
 int wave5_vpu_enc_close(struct vpu_instance *inst, u32 *fail_res);
